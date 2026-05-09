@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#1a1a1e" />
+  <title>Workout Log</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <div id="app">
+
+    <!-- HEADER -->
+    <header>
+      <span id="header-title">Workout Log</span>
+    </header>
+
+    <!-- PAGE: TODAY -->
+    <section id="page-today" class="page active">
+
+      <!-- IDLE -->
+      <div id="today-idle">
+        <p class="page-intro">Ready to train?</p>
+        <button class="btn-primary full-width" onclick="startWorkout(false)">Start workout</button>
+      </div>
+
+      <!-- PLANNING -->
+      <div id="today-planning" style="display:none;">
+
+        <div class="card" id="manual-date-card" style="display:none;">
+          <div class="card-title">📅 Workout date</div>
+          <label class="field-label">Date</label>
+          <input type="date" id="manual-date" />
+        </div>
+
+        <div class="card">
+          <div class="card-title">🔥 Warmup</div>
+          <label class="field-label">Type</label>
+          <select id="warmup-select"></select>
+          <label class="field-label">Time (minutes)</label>
+          <input type="number" id="warmup-time" placeholder="e.g. 10" min="1" max="120" />
+        </div>
+
+        <div class="card">
+          <div class="card-title">💪 Workout</div>
+          <label class="field-label">Day</label>
+          <select id="day-select" onchange="loadDayExercises()"></select>
+          <div id="exercise-log-list"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">🏃 End cardio</div>
+          <label class="field-label">Type</label>
+          <select id="cardio-select"></select>
+          <label class="field-label">Time (minutes)</label>
+          <input type="number" id="cardio-time" placeholder="e.g. 15" min="1" max="120" />
+        </div>
+
+        <button class="btn-primary full-width" onclick="showSummary()" style="margin-bottom:1rem;">Start now ▶</button>
+
+      </div>
+
+      <!-- SUMMARY -->
+      <div id="today-summary" style="display:none;">
+        <div class="card">
+          <div class="card-title">📋 Summary</div>
+          <div id="summary-content"></div>
+          <button class="btn-primary full-width" style="margin-top:1rem;" onclick="saveWorkout()">Save workout</button>
+        </div>
+        <button class="btn-outline full-width" onclick="backToPlanning()" style="margin-bottom:1rem;">← Back to edit</button>
+      </div>
+
+    </section>
+
+    <!-- PAGE: SETUP -->
+    <section id="page-setup" class="page">
+
+      <div class="card">
+        <div class="card-title">📅 Workout days</div>
+        <div id="days-list"></div>
+        <button class="btn-outline full-width" onclick="openDayEditor(-1)">+ Add day</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🔥 Warmup types</div>
+        <div id="warmup-types-list"></div>
+        <div class="inline-add">
+          <input type="text" id="new-warmup-input" placeholder="e.g. Treadmill" />
+          <button class="btn-outline" onclick="addWarmupType()">Add</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🏃 Cardio types</div>
+        <div id="cardio-types-list"></div>
+        <div class="inline-add">
+          <input type="text" id="new-cardio-input" placeholder="e.g. Cross trainer" />
+          <button class="btn-outline" onclick="addCardioType()">Add</button>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- PAGE: HISTORY -->
+    <section id="page-history" class="page">
+      <button class="btn-outline full-width" onclick="startManualWorkout()" style="margin-bottom:1rem;">+ Add workout manually</button>
+      <div id="history-stats"></div>
+      <div id="history-list"></div>
+    </section>
+
+    <!-- DAY EDITOR MODAL -->
+    <div id="day-editor-overlay" class="overlay" style="display:none;">
+      <div class="modal">
+        <div class="modal-title" id="modal-title">Edit day</div>
+        <label class="field-label">Day name</label>
+        <input type="text" id="modal-day-name" placeholder="e.g. Day 1 – Push" />
+        <div class="field-label" style="margin-top:1rem;">Exercises</div>
+        <div class="modal-exercise-header">
+          <span></span>
+          <span>Sets</span>
+          <span>Reps</span>
+          <span>KG</span>
+          <span></span>
+        </div>
+        <div id="modal-exercise-list"></div>
+        <button class="btn-outline full-width" onclick="addExerciseToModal()">+ Add exercise</button>
+        <div style="display:flex; gap:8px; margin-top:1rem;">
+          <button class="btn-primary" style="flex:1;" onclick="saveDay()">Save</button>
+          <button class="btn-outline" style="flex:1;" onclick="closeDayEditor()">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- BOTTOM NAV -->
+  <nav id="bottom-nav">
+    <button class="nav-btn active" onclick="showPage('today', this)">
+      <span class="nav-icon">🏋️</span>
+      <span class="nav-label">Today</span>
+    </button>
+    <button class="nav-btn" onclick="showPage('setup', this)">
+      <span class="nav-icon">⚙️</span>
+      <span class="nav-label">Setup</span>
+    </button>
+    <button class="nav-btn" onclick="showPage('history', this)">
+      <span class="nav-icon">📈</span>
+      <span class="nav-label">History</span>
+    </button>
+  </nav>
+
+    <script src="app.js"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/service-worker.js');
+      }
+    </script>
+  </body>
+</html>
