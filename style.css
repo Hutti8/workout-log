@@ -268,7 +268,7 @@ input[type="number"] {
 /* Column headers */
 .modal-exercise-header {
   display: grid;
-  grid-template-columns: 1fr 36px 36px 46px 32px;
+  grid-template-columns: 40% 14% 14% 18% 10%;
   gap: 4px;
   margin-bottom: 4px;
   align-items: center;
@@ -289,7 +289,7 @@ input[type="number"] {
 /* Exercise rows — name expands on focus */
 .modal-exercise-row {
   display: grid;
-  grid-template-columns: 1fr 44px 44px 54px 32px;
+  grid-template-columns: 40% 14% 14% 18% 10%;
   gap: 6px;
   align-items: center;
   margin-bottom: 8px;
