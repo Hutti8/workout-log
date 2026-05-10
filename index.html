@@ -37,11 +37,14 @@
     <!-- PAGE: TODAY -->
     <section id="page-today" class="page active">
 
+      <!-- IDLE: choose workout type -->
       <div id="today-idle">
         <p class="page-intro">Ready to train?</p>
-        <button class="btn-primary full-width" onclick="startWorkout(false)">Start workout</button>
+        <button class="btn-primary full-width" onclick="startWorkout(false, false)" style="margin-bottom:0.75rem;">💪 Start workout</button>
+        <button class="btn-outline full-width" onclick="startWorkout(false, true)">🏃 Cardio only</button>
       </div>
 
+      <!-- PLANNING: regular workout -->
       <div id="today-planning" style="display:none;">
 
         <div class="card" id="manual-date-card" style="display:none;">
@@ -50,7 +53,8 @@
           <input type="date" id="manual-date" />
         </div>
 
-        <div class="card">
+        <!-- Warmup (hidden in cardio only mode) -->
+        <div class="card" id="section-warmup">
           <div class="card-title">🔥 Warmup</div>
           <label class="field-label">Type</label>
           <select id="warmup-select" onchange="renderWarmupFields()"></select>
@@ -59,26 +63,26 @@
           <input type="number" id="warmup-time" placeholder="e.g. 10" min="1" max="120" />
         </div>
 
-        <div class="card">
+        <!-- Exercises (hidden in cardio only mode) -->
+        <div class="card" id="section-exercises">
           <div class="card-title">💪 Workout</div>
           <label class="field-label">Day</label>
           <select id="day-select" onchange="loadDayExercises()"></select>
           <div id="exercise-log-list"></div>
         </div>
 
+        <!-- Cardio (always shown, label changes) -->
         <div class="card">
-          <div class="card-title">🏃 End cardio</div>
-          <label class="field-label">Type</label>
-          <select id="cardio-select" onchange="renderCardioFields()"></select>
-          <div id="cardio-fields"></div>
-          <label class="field-label">Time (minutes)</label>
-          <input type="number" id="cardio-time" placeholder="e.g. 15" min="1" max="120" />
+          <div class="card-title" id="cardio-card-title">🏃 Cardio</div>
+          <div id="cardio-entries-list"></div>
+          <button class="btn-outline full-width" onclick="addCardioEntry()" style="margin-top:8px;">+ Add cardio</button>
         </div>
 
         <button class="btn-primary full-width" onclick="showSummary()" style="margin-bottom:1rem;">Start now ▶</button>
 
       </div>
 
+      <!-- SUMMARY -->
       <div id="today-summary" style="display:none;">
         <div class="card">
           <div class="card-title">📋 Summary</div>
@@ -119,7 +123,8 @@
 
     <!-- PAGE: HISTORY -->
     <section id="page-history" class="page">
-      <button class="btn-outline full-width" onclick="startManualWorkout()" style="margin-bottom:1rem;">+ Add workout manually</button>
+      <button class="btn-outline full-width" onclick="startManualWorkout(false)" style="margin-bottom:0.5rem;">+ Add workout manually</button>
+      <button class="btn-outline full-width" onclick="startManualWorkout(true)" style="margin-bottom:1rem;">+ Add cardio manually</button>
       <div id="history-stats"></div>
       <div id="history-list"></div>
     </section>
@@ -147,7 +152,7 @@
       </div>
     </div>
 
-    <!-- TYPE EDITOR MODAL (warmup/cardio) -->
+    <!-- TYPE EDITOR MODAL -->
     <div id="type-editor-overlay" class="overlay" style="display:none;">
       <div class="modal">
         <div class="modal-title" id="type-modal-title">Edit type</div>

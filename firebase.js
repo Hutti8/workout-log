@@ -18,14 +18,13 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-
 const MAX_ACCOUNTS = 10;
 
 async function registerUser(email, password) {
   const metaRef = doc(db, 'meta', 'accountCount');
   const metaSnap = await getDoc(metaRef);
   const count = metaSnap.exists() ? metaSnap.data().count : 0;
-  if (count >= MAX_ACCOUNTS) throw new Error('Maximum number of accounts reached. No new registrations allowed.');
+  if (count >= MAX_ACCOUNTS) throw new Error('Maximum number of accounts reached.');
   const cred = await createUserWithEmailAndPassword(auth, email, password);
   await setDoc(metaRef, { count: count + 1 });
   await setDoc(doc(db, 'users', cred.user.uid, 'data', 'main'), getDefaultState());
@@ -37,13 +36,8 @@ async function loginUser(email, password) {
   return cred.user;
 }
 
-async function logoutUser() {
-  await signOut(auth);
-}
-
-function onAuthChange(callback) {
-  return onAuthStateChanged(auth, callback);
-}
+async function logoutUser() { await signOut(auth); }
+function onAuthChange(callback) { return onAuthStateChanged(auth, callback); }
 
 async function loadUserData(uid) {
   const snap = await getDoc(doc(db, 'users', uid, 'data', 'main'));
@@ -59,13 +53,11 @@ async function saveUserData(uid, data) {
 
 function getDefaultState() {
   return {
-    // Warmup types now store name + custom fields
     warmupTypes: [
       { name: 'Treadmill', fields: ['Speed', 'Elevation'] },
       { name: 'Stationary bike', fields: ['Speed', 'Load'] },
       { name: 'Rowing machine', fields: ['Load'] },
     ],
-    // Cardio types same structure
     cardioTypes: [
       { name: 'Walk', fields: [] },
       { name: 'Cross trainer', fields: ['Load'] },
