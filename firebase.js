@@ -4,7 +4,7 @@
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBY-z5hTcWxNtghUvvTqPv8FRaxMiC5Uyc",
@@ -21,67 +21,42 @@ const db = getFirestore(app);
 
 const MAX_ACCOUNTS = 10;
 
-// ---- AUTH ----
-
-// Register a new user (checks account limit first)
 async function registerUser(email, password) {
-  // Check total account count
   const metaRef = doc(db, 'meta', 'accountCount');
   const metaSnap = await getDoc(metaRef);
   const count = metaSnap.exists() ? metaSnap.data().count : 0;
-
-  if (count >= MAX_ACCOUNTS) {
-    throw new Error('Maximum number of accounts reached. No new registrations allowed.');
-  }
-
+  if (count >= MAX_ACCOUNTS) throw new Error('Maximum number of accounts reached. No new registrations allowed.');
   const cred = await createUserWithEmailAndPassword(auth, email, password);
-
-  // Increment account count
   await setDoc(metaRef, { count: count + 1 });
-
-  // Create default user data in Firestore
   await setDoc(doc(db, 'users', cred.user.uid, 'data', 'main'), getDefaultState());
-
   return cred.user;
 }
 
-// Login
 async function loginUser(email, password) {
   const cred = await signInWithEmailAndPassword(auth, email, password);
   return cred.user;
 }
 
-// Logout
 async function logoutUser() {
   await signOut(auth);
 }
 
-// Listen for auth state changes
 function onAuthChange(callback) {
   return onAuthStateChanged(auth, callback);
 }
 
-// ---- FIRESTORE DATA ----
-
-// Load user data from Firestore
 async function loadUserData(uid) {
   const snap = await getDoc(doc(db, 'users', uid, 'data', 'main'));
-  if (snap.exists()) {
-    return snap.data();
-  } else {
-    // First time — create default data
-    const defaults = getDefaultState();
-    await setDoc(doc(db, 'users', uid, 'data', 'main'), defaults);
-    return defaults;
-  }
+  if (snap.exists()) return snap.data();
+  const defaults = getDefaultState();
+  await setDoc(doc(db, 'users', uid, 'data', 'main'), defaults);
+  return defaults;
 }
 
-// Save user data to Firestore
 async function saveUserData(uid, data) {
   await setDoc(doc(db, 'users', uid, 'data', 'main'), data);
 }
 
-// Default state for a new user
 function getDefaultState() {
   return {
     warmupTypes: ['Treadmill', 'Stationary bike', 'Rowing machine'],

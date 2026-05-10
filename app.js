@@ -22,13 +22,7 @@ async function handleLogin() {
   const password = document.getElementById('auth-password').value;
   const errEl = document.getElementById('auth-error');
   errEl.style.display = 'none';
-
-  if (!email || !password) {
-    errEl.textContent = 'Please enter your email and password.';
-    errEl.style.display = 'block';
-    return;
-  }
-
+  if (!email || !password) { errEl.textContent = 'Please enter your email and password.'; errEl.style.display = 'block'; return; }
   try {
     await loginUser(email, password);
   } catch (e) {
@@ -42,13 +36,7 @@ async function handleRegister() {
   const password = document.getElementById('auth-password').value;
   const errEl = document.getElementById('auth-error');
   errEl.style.display = 'none';
-
-  if (!email || !password) {
-    errEl.textContent = 'Please enter an email and password.';
-    errEl.style.display = 'block';
-    return;
-  }
-
+  if (!email || !password) { errEl.textContent = 'Please enter an email and password.'; errEl.style.display = 'block'; return; }
   try {
     await registerUser(email, password);
   } catch (e) {
@@ -62,18 +50,14 @@ async function handleSignOut() {
 }
 
 // ---- AUTH STATE LISTENER ----
-// This runs whenever login/logout happens
 onAuthChange(async (user) => {
   if (user) {
     currentUser = user;
-    // Load user data from Firestore
     document.getElementById('auth-screen').style.display = 'none';
     document.getElementById('app').style.display = 'block';
     document.getElementById('bottom-nav').style.display = 'flex';
-
     const data = await loadUserData(user.uid);
     state = data;
-    // Render setup page if already on it
     renderSetup();
   } else {
     currentUser = null;
@@ -81,7 +65,6 @@ onAuthChange(async (user) => {
     document.getElementById('auth-screen').style.display = 'flex';
     document.getElementById('app').style.display = 'none';
     document.getElementById('bottom-nav').style.display = 'none';
-    // Reset to idle
     document.getElementById('today-idle').style.display = 'block';
     document.getElementById('today-planning').style.display = 'none';
     document.getElementById('today-summary').style.display = 'none';
@@ -100,6 +83,17 @@ function showPage(pageId, btn) {
   if (pageId === 'history') renderHistory();
 }
 
+// ---- EXPANDING NAME FIELD ----
+// Adds focus/blur listeners to a name input in a modal exercise row
+function attachNameExpand(input) {
+  input.addEventListener('focus', () => {
+    input.closest('.modal-exercise-row').classList.add('name-focused');
+  });
+  input.addEventListener('blur', () => {
+    input.closest('.modal-exercise-row').classList.remove('name-focused');
+  });
+}
+
 // ---- TODAY PAGE ----
 function startWorkout(manual) {
   isManualEntry = manual;
@@ -109,9 +103,7 @@ function startWorkout(manual) {
 
   const dateCard = document.getElementById('manual-date-card');
   dateCard.style.display = manual ? 'block' : 'none';
-  if (manual) {
-    document.getElementById('manual-date').value = new Date().toISOString().split('T')[0];
-  }
+  if (manual) document.getElementById('manual-date').value = new Date().toISOString().split('T')[0];
 
   document.getElementById('warmup-select').innerHTML = state.warmupTypes.map(t => `<option>${t}</option>`).join('');
   document.getElementById('day-select').innerHTML = state.days.map((d, i) => `<option value="${i}">${d.name}</option>`).join('');
@@ -157,9 +149,9 @@ function loadDayExercises() {
   day.exercises.forEach((ex, i) => {
     html += `
       <div class="exercise-log-row">
-        <div class="exercise-log-name">${ex.name}</div>
-        <input type="number" id="reps-${i}" value="${ex.reps || ''}" placeholder="0" min="0" />
-        <input type="number" id="kg-${i}" value="${ex.kg || ''}" placeholder="0" min="0" step="0.5" />
+        <div class="exercise-log-name" title="${ex.name}">${ex.name}</div>
+        <input type="number" id="reps-${i}" value="${ex.reps || ''}" placeholder="0" min="0" max="99" />
+        <input type="number" id="kg-${i}" value="${ex.kg || ''}" placeholder="0" min="0" max="999" step="0.5" />
       </div>
     `;
   });
@@ -244,18 +236,12 @@ async function saveWorkout() {
   });
 
   exercises.forEach((ex, i) => {
-    if (state.days[dayIndex].exercises[i]) {
-      state.days[dayIndex].exercises[i].lastNote = ex.note || '';
-    }
+    if (state.days[dayIndex].exercises[i]) state.days[dayIndex].exercises[i].lastNote = ex.note || '';
   });
 
-  let workoutDate;
-  if (isManualEntry) {
-    const manualVal = document.getElementById('manual-date').value;
-    workoutDate = manualVal ? new Date(manualVal + 'T12:00:00').toISOString() : new Date().toISOString();
-  } else {
-    workoutDate = new Date().toISOString();
-  }
+  const workoutDate = isManualEntry
+    ? (document.getElementById('manual-date').value ? new Date(document.getElementById('manual-date').value + 'T12:00:00').toISOString() : new Date().toISOString())
+    : new Date().toISOString();
 
   state.history.unshift({ date: workoutDate, dayName: day.name, warmup, warmupTime, cardio, cardioTime, exercises });
   state.history.sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -381,12 +367,16 @@ function openDayEditor(index) {
     exList.innerHTML = day.exercises.map(ex => `
       <div class="modal-exercise-row">
         <input type="text" value="${ex.name}" placeholder="Exercise name" />
-        <input type="number" value="${ex.sets || ''}" placeholder="-" min="1" />
-        <input type="number" value="${ex.reps || ''}" placeholder="-" min="0" />
-        <input type="number" value="${ex.kg || ''}" placeholder="-" min="0" step="0.5" />
+        <input type="number" value="${ex.sets || ''}" placeholder="-" min="1" max="99" />
+        <input type="number" value="${ex.reps || ''}" placeholder="-" min="0" max="99" />
+        <input type="number" value="${ex.kg || ''}" placeholder="-" min="0" max="999" step="0.5" />
         <button class="btn-danger" onclick="this.parentElement.remove()">🗑</button>
       </div>`).join('');
   }
+
+  // Attach expand listeners to all name inputs
+  exList.querySelectorAll('.modal-exercise-row input:first-child').forEach(attachNameExpand);
+
   document.getElementById('day-editor-overlay').style.display = 'flex';
 }
 
@@ -395,11 +385,13 @@ function addExerciseToModal() {
   row.className = 'modal-exercise-row';
   row.innerHTML = `
     <input type="text" placeholder="Exercise name" />
-    <input type="number" placeholder="-" min="1" />
-    <input type="number" placeholder="-" min="0" />
-    <input type="number" placeholder="-" min="0" step="0.5" />
+    <input type="number" placeholder="-" min="1" max="99" />
+    <input type="number" placeholder="-" min="0" max="99" />
+    <input type="number" placeholder="-" min="0" max="999" step="0.5" />
     <button class="btn-danger" onclick="this.parentElement.remove()">🗑</button>
   `;
+  // Attach expand listener to new row's name input
+  attachNameExpand(row.querySelector('input:first-child'));
   document.getElementById('modal-exercise-list').appendChild(row);
 }
 
@@ -502,7 +494,7 @@ async function deleteWorkout(index) {
   renderHistory();
 }
 
-// ---- EXPOSE FUNCTIONS TO HTML ----
+// ---- EXPOSE TO HTML ----
 window.handleLogin = handleLogin;
 window.handleRegister = handleRegister;
 window.handleSignOut = handleSignOut;
@@ -514,7 +506,6 @@ window.backToPlanning = backToPlanning;
 window.loadDayExercises = loadDayExercises;
 window.toggleNote = toggleNote;
 window.saveWorkout = saveWorkout;
-window.renderSetup = renderSetup;
 window.clearNote = clearNote;
 window.addWarmupType = addWarmupType;
 window.deleteWarmupType = deleteWarmupType;

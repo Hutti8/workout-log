@@ -14,26 +14,19 @@
     <div class="auth-box">
       <div class="auth-title">💪 Workout Log</div>
       <div class="auth-subtitle">Sign in to your account</div>
-
       <div id="auth-error" class="auth-error" style="display:none;"></div>
-
       <label class="field-label">Email</label>
       <input type="email" id="auth-email" placeholder="your@email.com" />
-
       <label class="field-label">Password</label>
       <input type="password" id="auth-password" placeholder="Password" />
-
       <button class="btn-primary full-width" style="margin-top:1rem;" onclick="handleLogin()">Sign in</button>
-
       <div class="auth-divider">or</div>
-
       <button class="btn-outline full-width" onclick="handleRegister()">Create account</button>
-
       <p class="auth-note">Max 10 accounts total</p>
     </div>
   </div>
 
-  <!-- MAIN APP (hidden until logged in) -->
+  <!-- MAIN APP -->
   <div id="app" style="display:none;">
 
     <header>
@@ -139,7 +132,7 @@
         <input type="text" id="modal-day-name" placeholder="e.g. Day 1 – Push" />
         <div class="field-label" style="margin-top:1rem;">Exercises</div>
         <div class="modal-exercise-header">
-          <span></span>
+          <span>Exercise</span>
           <span>Sets</span>
           <span>Reps</span>
           <span>KG</span>
@@ -154,7 +147,7 @@
       </div>
     </div>
 
-  </div><!-- end #app -->
+  </div>
 
   <!-- BOTTOM NAV -->
   <nav id="bottom-nav" style="display:none;">
