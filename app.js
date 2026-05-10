@@ -9,6 +9,14 @@ let state = { days: [], warmupTypes: [], cardioTypes: [], history: [] };
 let currentUser = null;
 let editingDayIndex = -1;
 let isManualEntry = false;
+let editingTypeKind = null; // 'warmup' or 'cardio'
+let editingTypeIndex = -1;
+
+// ---- HELPERS ----
+// Normalise old string-based types to new object format
+function normaliseTypes(arr) {
+  return (arr || []).map(t => typeof t === 'string' ? { name: t, fields: [] } : t);
+}
 
 // ---- SAVE STATE ----
 async function saveState() {
@@ -16,19 +24,15 @@ async function saveState() {
   await saveUserData(currentUser.uid, state);
 }
 
-// ---- AUTH HANDLERS ----
+// ---- AUTH ----
 async function handleLogin() {
   const email = document.getElementById('auth-email').value.trim();
   const password = document.getElementById('auth-password').value;
   const errEl = document.getElementById('auth-error');
   errEl.style.display = 'none';
   if (!email || !password) { errEl.textContent = 'Please enter your email and password.'; errEl.style.display = 'block'; return; }
-  try {
-    await loginUser(email, password);
-  } catch (e) {
-    errEl.textContent = 'Login failed. Check your email and password.';
-    errEl.style.display = 'block';
-  }
+  try { await loginUser(email, password); }
+  catch (e) { errEl.textContent = 'Login failed. Check your email and password.'; errEl.style.display = 'block'; }
 }
 
 async function handleRegister() {
@@ -37,19 +41,12 @@ async function handleRegister() {
   const errEl = document.getElementById('auth-error');
   errEl.style.display = 'none';
   if (!email || !password) { errEl.textContent = 'Please enter an email and password.'; errEl.style.display = 'block'; return; }
-  try {
-    await registerUser(email, password);
-  } catch (e) {
-    errEl.textContent = e.message || 'Registration failed.';
-    errEl.style.display = 'block';
-  }
+  try { await registerUser(email, password); }
+  catch (e) { errEl.textContent = e.message || 'Registration failed.'; errEl.style.display = 'block'; }
 }
 
-async function handleSignOut() {
-  await logoutUser();
-}
+async function handleSignOut() { await logoutUser(); }
 
-// ---- AUTH STATE LISTENER ----
 onAuthChange(async (user) => {
   if (user) {
     currentUser = user;
@@ -57,6 +54,9 @@ onAuthChange(async (user) => {
     document.getElementById('app').style.display = 'block';
     document.getElementById('bottom-nav').style.display = 'flex';
     const data = await loadUserData(user.uid);
+    // Normalise old string types to new object format
+    data.warmupTypes = normaliseTypes(data.warmupTypes);
+    data.cardioTypes = normaliseTypes(data.cardioTypes);
     state = data;
     renderSetup();
   } else {
@@ -83,15 +83,40 @@ function showPage(pageId, btn) {
   if (pageId === 'history') renderHistory();
 }
 
-// ---- EXPANDING NAME FIELD ----
-// Adds focus/blur listeners to a name input in a modal exercise row
+// ---- EXPAND NAME FIELD ----
 function attachNameExpand(input) {
-  input.addEventListener('focus', () => {
-    input.closest('.modal-exercise-row').classList.add('name-focused');
+  input.addEventListener('focus', () => input.closest('.modal-exercise-row').classList.add('name-focused'));
+  input.addEventListener('blur', () => input.closest('.modal-exercise-row').classList.remove('name-focused'));
+}
+
+// ---- DYNAMIC FIELDS (speed, elevation etc.) ----
+// Renders input fields for a type's custom fields in the planning form
+function renderDynamicFields(containerId, typeObj) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  if (!typeObj || !typeObj.fields || typeObj.fields.length === 0) {
+    container.innerHTML = '';
+    return;
+  }
+  container.innerHTML = `<div class="dynamic-fields">${
+    typeObj.fields.map(f => `
+      <div class="dynamic-field-row">
+        <span class="dynamic-field-label">${f}</span>
+        <input type="number" class="dynamic-field-input" id="field-${containerId}-${f.toLowerCase()}" placeholder="-" min="1" max="99" />
+      </div>
+    `).join('')
+  }</div>`;
+}
+
+// Collect filled-in dynamic field values
+function collectDynamicFields(containerId, typeObj) {
+  if (!typeObj || !typeObj.fields || typeObj.fields.length === 0) return {};
+  const result = {};
+  typeObj.fields.forEach(f => {
+    const el = document.getElementById(`field-${containerId}-${f.toLowerCase()}`);
+    if (el) result[f] = el.value || '';
   });
-  input.addEventListener('blur', () => {
-    input.closest('.modal-exercise-row').classList.remove('name-focused');
-  });
+  return result;
 }
 
 // ---- TODAY PAGE ----
@@ -105,11 +130,24 @@ function startWorkout(manual) {
   dateCard.style.display = manual ? 'block' : 'none';
   if (manual) document.getElementById('manual-date').value = new Date().toISOString().split('T')[0];
 
-  document.getElementById('warmup-select').innerHTML = state.warmupTypes.map(t => `<option>${t}</option>`).join('');
+  // Populate selects
+  document.getElementById('warmup-select').innerHTML = state.warmupTypes.map((t, i) => `<option value="${i}">${t.name}</option>`).join('');
   document.getElementById('day-select').innerHTML = state.days.map((d, i) => `<option value="${i}">${d.name}</option>`).join('');
-  document.getElementById('cardio-select').innerHTML = state.cardioTypes.map(t => `<option>${t}</option>`).join('');
+  document.getElementById('cardio-select').innerHTML = state.cardioTypes.map((t, i) => `<option value="${i}">${t.name}</option>`).join('');
 
+  renderWarmupFields();
+  renderCardioFields();
   loadDayExercises();
+}
+
+function renderWarmupFields() {
+  const idx = parseInt(document.getElementById('warmup-select').value);
+  renderDynamicFields('warmup-fields', state.warmupTypes[idx]);
+}
+
+function renderCardioFields() {
+  const idx = parseInt(document.getElementById('cardio-select').value);
+  renderDynamicFields('cardio-fields', state.cardioTypes[idx]);
 }
 
 function startManualWorkout() {
@@ -121,6 +159,7 @@ function startManualWorkout() {
 function showSummary() {
   document.getElementById('today-planning').style.display = 'none';
   document.getElementById('today-summary').style.display = 'block';
+  document.getElementById('calories-input').value = '';
   buildSummary();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -140,46 +179,51 @@ function loadDayExercises() {
     return;
   }
 
-  let html = `
-    <div class="exercise-log-header" style="margin-top:12px;">
-      <span>Exercise</span><span>Reps</span><span>KG</span>
-    </div>
-  `;
-
+  let html = `<div class="exercise-log-header" style="margin-top:12px;"><span>Exercise</span><span>Reps</span><span>KG</span></div>`;
   day.exercises.forEach((ex, i) => {
     html += `
       <div class="exercise-log-row">
         <div class="exercise-log-name" title="${ex.name}">${ex.name}</div>
         <input type="number" id="reps-${i}" value="${ex.reps || ''}" placeholder="0" min="0" max="99" />
         <input type="number" id="kg-${i}" value="${ex.kg || ''}" placeholder="0" min="0" max="999" step="0.5" />
-      </div>
-    `;
+      </div>`;
   });
-
   container.innerHTML = html;
 }
 
 function buildSummary() {
   const dayIndex = parseInt(document.getElementById('day-select').value);
   const day = state.days[dayIndex];
-  const warmup = document.getElementById('warmup-select').value;
+  const warmupIdx = parseInt(document.getElementById('warmup-select').value);
+  const warmupType = state.warmupTypes[warmupIdx];
   const warmupTime = document.getElementById('warmup-time').value;
-  const cardio = document.getElementById('cardio-select').value;
+  const warmupFieldVals = collectDynamicFields('warmup-fields', warmupType);
+  const cardioIdx = parseInt(document.getElementById('cardio-select').value);
+  const cardioType = state.cardioTypes[cardioIdx];
   const cardioTime = document.getElementById('cardio-time').value;
+  const cardioFieldVals = collectDynamicFields('cardio-fields', cardioType);
 
-  let displayDate;
-  if (isManualEntry) {
-    const manualVal = document.getElementById('manual-date').value;
-    displayDate = manualVal
-      ? new Date(manualVal + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
-      : new Date().toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-  } else {
-    displayDate = new Date().toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-  }
+  let displayDate = isManualEntry
+    ? (document.getElementById('manual-date').value
+        ? new Date(document.getElementById('manual-date').value + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+        : new Date().toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }))
+    : new Date().toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+  // Build warmup detail string
+  let warmupDetail = warmupType.name;
+  if (warmupTime) warmupDetail += ` · ${warmupTime} min`;
+  const warmupExtras = Object.entries(warmupFieldVals).filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`).join(' · ');
+  if (warmupExtras) warmupDetail += ` · ${warmupExtras}`;
+
+  // Build cardio detail string
+  let cardioDetail = cardioType.name;
+  if (cardioTime) cardioDetail += ` · ${cardioTime} min`;
+  const cardioExtras = Object.entries(cardioFieldVals).filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`).join(' · ');
+  if (cardioExtras) cardioDetail += ` · ${cardioExtras}`;
 
   let html = `
     <div class="summary-row"><div><div class="summary-label">Date</div><div class="summary-value">${displayDate}</div></div></div>
-    <div class="summary-row"><div><div class="summary-label">Warmup</div><div class="summary-value">${warmup}${warmupTime ? ' · ' + warmupTime + ' min' : ''}</div></div></div>
+    <div class="summary-row"><div><div class="summary-label">Warmup</div><div class="summary-value">${warmupDetail}</div></div></div>
     <div class="summary-row"><div><div class="summary-label">Workout</div><div class="summary-value">${day ? day.name : '-'}</div></div></div>
   `;
 
@@ -195,12 +239,11 @@ function buildSummary() {
             <div class="note-text" id="note-text-${i}"></div>
           </div>
           <button class="btn-note" id="note-btn-${i}" onclick="toggleNote(${i})">📝 Next time</button>
-        </div>
-      `;
+        </div>`;
     });
   }
 
-  html += `<div class="summary-row" style="margin-top:4px;"><div><div class="summary-label">End cardio</div><div class="summary-value">${cardio}${cardioTime ? ' · ' + cardioTime + ' min' : ''}</div></div></div>`;
+  html += `<div class="summary-row" style="margin-top:4px;"><div><div class="summary-label">End cardio</div><div class="summary-value">${cardioDetail}</div></div></div>`;
   document.getElementById('summary-content').innerHTML = html;
 }
 
@@ -224,10 +267,15 @@ function toggleNote(index) {
 async function saveWorkout() {
   const dayIndex = parseInt(document.getElementById('day-select').value);
   const day = state.days[dayIndex];
-  const warmup = document.getElementById('warmup-select').value;
+  const warmupIdx = parseInt(document.getElementById('warmup-select').value);
+  const warmupType = state.warmupTypes[warmupIdx];
   const warmupTime = document.getElementById('warmup-time').value;
-  const cardio = document.getElementById('cardio-select').value;
+  const warmupFields = collectDynamicFields('warmup-fields', warmupType);
+  const cardioIdx = parseInt(document.getElementById('cardio-select').value);
+  const cardioType = state.cardioTypes[cardioIdx];
   const cardioTime = document.getElementById('cardio-time').value;
+  const cardioFields = collectDynamicFields('cardio-fields', cardioType);
+  const calories = document.getElementById('calories-input').value || '';
 
   const exercises = day.exercises.map((ex, i) => {
     const noteDiv = document.getElementById('note-text-' + i);
@@ -243,7 +291,18 @@ async function saveWorkout() {
     ? (document.getElementById('manual-date').value ? new Date(document.getElementById('manual-date').value + 'T12:00:00').toISOString() : new Date().toISOString())
     : new Date().toISOString();
 
-  state.history.unshift({ date: workoutDate, dayName: day.name, warmup, warmupTime, cardio, cardioTime, exercises });
+  state.history.unshift({
+    date: workoutDate,
+    dayName: day.name,
+    warmup: warmupType.name,
+    warmupTime,
+    warmupFields,
+    cardio: cardioType.name,
+    cardioTime,
+    cardioFields,
+    calories,
+    exercises,
+  });
   state.history.sort((a, b) => new Date(b.date) - new Date(a.date));
 
   await saveState();
@@ -256,7 +315,7 @@ async function saveWorkout() {
   alert('Workout saved! Great work 💪');
 }
 
-// ---- SETUP PAGE ----
+// ---- SETUP ----
 function renderSetup() {
   renderDaysList();
   renderWarmupTypesList();
@@ -304,27 +363,35 @@ async function clearNote(dayIndex, exIndex) {
 function renderWarmupTypesList() {
   const container = document.getElementById('warmup-types-list');
   if (!container) return;
-  container.innerHTML = state.warmupTypes.length === 0
-    ? '<p class="empty-state">No warmup types yet.</p>'
-    : state.warmupTypes.map((t, i) => `<div class="setup-item"><div class="setup-item-name">${t}</div><button class="btn-danger" onclick="deleteWarmupType(${i})">🗑</button></div>`).join('');
+  if (state.warmupTypes.length === 0) { container.innerHTML = '<p class="empty-state">No warmup types yet.</p>'; return; }
+  container.innerHTML = state.warmupTypes.map((t, i) => `
+    <div class="setup-item">
+      <div>
+        <div class="setup-item-name">${t.name}</div>
+        ${t.fields && t.fields.length > 0 ? `<div class="setup-item-meta">${t.fields.join(' · ')}</div>` : ''}
+      </div>
+      <div class="setup-item-actions">
+        <button class="btn-outline" style="padding:6px 12px; font-size:13px;" onclick="openTypeEditor('warmup', ${i})">Edit</button>
+        <button class="btn-danger" onclick="deleteWarmupType(${i})">🗑</button>
+      </div>
+    </div>`).join('');
 }
 
 function renderCardioTypesList() {
   const container = document.getElementById('cardio-types-list');
   if (!container) return;
-  container.innerHTML = state.cardioTypes.length === 0
-    ? '<p class="empty-state">No cardio types yet.</p>'
-    : state.cardioTypes.map((t, i) => `<div class="setup-item"><div class="setup-item-name">${t}</div><button class="btn-danger" onclick="deleteCardioType(${i})">🗑</button></div>`).join('');
-}
-
-async function addWarmupType() {
-  const input = document.getElementById('new-warmup-input');
-  const val = input.value.trim();
-  if (!val) return;
-  state.warmupTypes.push(val);
-  await saveState();
-  input.value = '';
-  renderWarmupTypesList();
+  if (state.cardioTypes.length === 0) { container.innerHTML = '<p class="empty-state">No cardio types yet.</p>'; return; }
+  container.innerHTML = state.cardioTypes.map((t, i) => `
+    <div class="setup-item">
+      <div>
+        <div class="setup-item-name">${t.name}</div>
+        ${t.fields && t.fields.length > 0 ? `<div class="setup-item-meta">${t.fields.join(' · ')}</div>` : ''}
+      </div>
+      <div class="setup-item-actions">
+        <button class="btn-outline" style="padding:6px 12px; font-size:13px;" onclick="openTypeEditor('cardio', ${i})">Edit</button>
+        <button class="btn-danger" onclick="deleteCardioType(${i})">🗑</button>
+      </div>
+    </div>`).join('');
 }
 
 async function deleteWarmupType(i) {
@@ -333,20 +400,72 @@ async function deleteWarmupType(i) {
   renderWarmupTypesList();
 }
 
-async function addCardioType() {
-  const input = document.getElementById('new-cardio-input');
-  const val = input.value.trim();
-  if (!val) return;
-  state.cardioTypes.push(val);
-  await saveState();
-  input.value = '';
-  renderCardioTypesList();
-}
-
 async function deleteCardioType(i) {
   state.cardioTypes.splice(i, 1);
   await saveState();
   renderCardioTypesList();
+}
+
+// ---- TYPE EDITOR MODAL ----
+function openTypeEditor(kind, index) {
+  editingTypeKind = kind;
+  editingTypeIndex = index;
+  const arr = kind === 'warmup' ? state.warmupTypes : state.cardioTypes;
+  const title = document.getElementById('type-modal-title');
+  const nameInput = document.getElementById('type-modal-name');
+  const fieldsContainer = document.getElementById('type-modal-fields');
+
+  if (index === -1) {
+    title.textContent = `New ${kind} type`;
+    nameInput.value = '';
+    fieldsContainer.innerHTML = '';
+  } else {
+    const t = arr[index];
+    title.textContent = `Edit ${t.name}`;
+    nameInput.value = t.name;
+    fieldsContainer.innerHTML = (t.fields || []).map(f => `
+      <div class="type-field-row">
+        <input type="text" value="${f}" placeholder="e.g. Speed" />
+        <button class="btn-danger" onclick="this.parentElement.remove()">🗑</button>
+      </div>`).join('');
+  }
+  document.getElementById('type-editor-overlay').style.display = 'flex';
+}
+
+function addTypeField() {
+  const row = document.createElement('div');
+  row.className = 'type-field-row';
+  row.innerHTML = `
+    <input type="text" placeholder="e.g. Speed" />
+    <button class="btn-danger" onclick="this.parentElement.remove()">🗑</button>
+  `;
+  document.getElementById('type-modal-fields').appendChild(row);
+}
+
+function closeTypeEditor() {
+  document.getElementById('type-editor-overlay').style.display = 'none';
+}
+
+async function saveType() {
+  const name = document.getElementById('type-modal-name').value.trim();
+  if (!name) return alert('Please enter a name.');
+
+  const fields = [...document.querySelectorAll('#type-modal-fields .type-field-row input')]
+    .map(i => i.value.trim())
+    .filter(Boolean);
+
+  const arr = editingTypeKind === 'warmup' ? state.warmupTypes : state.cardioTypes;
+
+  if (editingTypeIndex === -1) {
+    arr.push({ name, fields });
+  } else {
+    arr[editingTypeIndex] = { name, fields };
+  }
+
+  await saveState();
+  closeTypeEditor();
+  if (editingTypeKind === 'warmup') renderWarmupTypesList();
+  else renderCardioTypesList();
 }
 
 // ---- DAY EDITOR MODAL ----
@@ -374,9 +493,7 @@ function openDayEditor(index) {
       </div>`).join('');
   }
 
-  // Attach expand listeners to all name inputs
   exList.querySelectorAll('.modal-exercise-row input:first-child').forEach(attachNameExpand);
-
   document.getElementById('day-editor-overlay').style.display = 'flex';
 }
 
@@ -390,7 +507,6 @@ function addExerciseToModal() {
     <input type="number" placeholder="-" min="0" max="999" step="0.5" />
     <button class="btn-danger" onclick="this.parentElement.remove()">🗑</button>
   `;
-  // Attach expand listener to new row's name input
   attachNameExpand(row.querySelector('input:first-child'));
   document.getElementById('modal-exercise-list').appendChild(row);
 }
@@ -415,11 +531,8 @@ async function saveDay() {
     if (exName) exercises.push({ name: exName, sets, reps, kg, lastNote: existing?.lastNote || '' });
   });
 
-  if (editingDayIndex === -1) {
-    state.days.push({ name, exercises });
-  } else {
-    state.days[editingDayIndex] = { name, exercises };
-  }
+  if (editingDayIndex === -1) state.days.push({ name, exercises });
+  else state.days[editingDayIndex] = { name, exercises };
 
   await saveState();
   closeDayEditor();
@@ -433,7 +546,7 @@ async function deleteDay(i) {
   renderDaysList();
 }
 
-// ---- HISTORY PAGE ----
+// ---- HISTORY ----
 function renderStats() {
   const container = document.getElementById('history-stats');
   if (!container || state.history.length === 0) { if (container) container.innerHTML = ''; return; }
@@ -470,6 +583,19 @@ function renderHistory() {
 
   container.innerHTML = state.history.map((w, i) => {
     const date = new Date(w.date).toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+    // Build warmup/cardio strings with extra fields
+    let warmupStr = w.warmup + (w.warmupTime ? ` · ${w.warmupTime} min` : '');
+    if (w.warmupFields) {
+      const extras = Object.entries(w.warmupFields).filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`).join(' · ');
+      if (extras) warmupStr += ` · ${extras}`;
+    }
+    let cardioStr = w.cardio + (w.cardioTime ? ` · ${w.cardioTime} min` : '');
+    if (w.cardioFields) {
+      const extras = Object.entries(w.cardioFields).filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`).join(' · ');
+      if (extras) cardioStr += ` · ${extras}`;
+    }
+
     const exercises = w.exercises.map(ex => `
       <div class="history-exercise"><span>${ex.name}</span><span>${ex.reps ? ex.reps + ' reps' : ''} ${ex.kg ? '· ' + ex.kg + ' kg' : ''}</span></div>
       ${ex.note ? `<div class="history-note">→ ${ex.note}</div>` : ''}`).join('');
@@ -481,7 +607,9 @@ function renderHistory() {
           <button class="btn-danger-sm" onclick="deleteWorkout(${i})">🗑 Delete</button>
         </div>
         <div class="history-day-name">${w.dayName}</div>
-        <div class="history-meta">🔥 ${w.warmup}${w.warmupTime ? ' · ' + w.warmupTime + ' min' : ''} &nbsp;·&nbsp; 🏃 ${w.cardio}${w.cardioTime ? ' · ' + w.cardioTime + ' min' : ''}</div>
+        <div class="history-meta">🔥 ${warmupStr}</div>
+        <div class="history-meta">🏃 ${cardioStr}</div>
+        ${w.calories ? `<div class="history-calories">🔥 ${w.calories} kcal</div>` : ''}
         ${exercises}
       </div>`;
   }).join('');
@@ -504,13 +632,17 @@ window.startManualWorkout = startManualWorkout;
 window.showSummary = showSummary;
 window.backToPlanning = backToPlanning;
 window.loadDayExercises = loadDayExercises;
+window.renderWarmupFields = renderWarmupFields;
+window.renderCardioFields = renderCardioFields;
 window.toggleNote = toggleNote;
 window.saveWorkout = saveWorkout;
 window.clearNote = clearNote;
-window.addWarmupType = addWarmupType;
 window.deleteWarmupType = deleteWarmupType;
-window.addCardioType = addCardioType;
 window.deleteCardioType = deleteCardioType;
+window.openTypeEditor = openTypeEditor;
+window.addTypeField = addTypeField;
+window.closeTypeEditor = closeTypeEditor;
+window.saveType = saveType;
 window.openDayEditor = openDayEditor;
 window.addExerciseToModal = addExerciseToModal;
 window.closeDayEditor = closeDayEditor;

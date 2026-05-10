@@ -59,8 +59,19 @@ async function saveUserData(uid, data) {
 
 function getDefaultState() {
   return {
-    warmupTypes: ['Treadmill', 'Stationary bike', 'Rowing machine'],
-    cardioTypes: ['Walk', 'Cross trainer', 'Treadmill'],
+    // Warmup types now store name + custom fields
+    warmupTypes: [
+      { name: 'Treadmill', fields: ['Speed', 'Elevation'] },
+      { name: 'Stationary bike', fields: ['Speed', 'Load'] },
+      { name: 'Rowing machine', fields: ['Load'] },
+    ],
+    // Cardio types same structure
+    cardioTypes: [
+      { name: 'Walk', fields: [] },
+      { name: 'Cross trainer', fields: ['Load'] },
+      { name: 'Treadmill', fields: ['Speed', 'Elevation'] },
+      { name: 'Stair master', fields: ['Load'] },
+    ],
     days: [
       { name: 'Day 1', exercises: [{ name: 'Bench press', sets: 4, reps: 10, kg: 60, lastNote: '' }, { name: 'Overhead press', sets: 3, reps: 10, kg: 40, lastNote: '' }, { name: 'Tricep dips', sets: 3, reps: 12, kg: 0, lastNote: '' }] },
       { name: 'Day 2', exercises: [{ name: 'Deadlift', sets: 4, reps: 8, kg: 80, lastNote: '' }, { name: 'Pull-ups', sets: 4, reps: 8, kg: 0, lastNote: '' }, { name: 'Barbell curl', sets: 3, reps: 12, kg: 30, lastNote: '' }] },

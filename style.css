@@ -44,20 +44,8 @@ html, body {
   max-width: 400px;
 }
 
-.auth-title {
-  font-size: 24px;
-  font-weight: 700;
-  color: #7eb8f7;
-  text-align: center;
-  margin-bottom: 6px;
-}
-
-.auth-subtitle {
-  font-size: 14px;
-  color: var(--text-secondary);
-  text-align: center;
-  margin-bottom: 1.5rem;
-}
+.auth-title { font-size: 24px; font-weight: 700; color: #7eb8f7; text-align: center; margin-bottom: 6px; }
+.auth-subtitle { font-size: 14px; color: var(--text-secondary); text-align: center; margin-bottom: 1.5rem; }
 
 .auth-error {
   background: rgba(192, 57, 43, 0.15);
@@ -76,9 +64,7 @@ html, body {
   margin: 1rem 0;
   position: relative;
 }
-
-.auth-divider::before,
-.auth-divider::after {
+.auth-divider::before, .auth-divider::after {
   content: '';
   position: absolute;
   top: 50%;
@@ -86,23 +72,12 @@ html, body {
   height: 1px;
   background: var(--border);
 }
-
 .auth-divider::before { left: 0; }
 .auth-divider::after { right: 0; }
-
-.auth-note {
-  text-align: center;
-  font-size: 12px;
-  color: var(--text-secondary);
-  margin-top: 1rem;
-}
+.auth-note { text-align: center; font-size: 12px; color: var(--text-secondary); margin-top: 1rem; }
 
 /* ---- APP LAYOUT ---- */
-#app {
-  max-width: 480px;
-  margin: 0 auto;
-  padding-bottom: 80px;
-}
+#app { max-width: 480px; margin: 0 auto; padding-bottom: 80px; }
 
 header {
   position: sticky;
@@ -129,18 +104,12 @@ header {
   cursor: pointer;
   transition: all 0.15s;
 }
+.btn-signout:hover { border-color: var(--danger); color: var(--danger); }
 
-.btn-signout:hover {
-  border-color: var(--danger);
-  color: var(--danger);
-}
-
-/* PAGES */
 .page { display: none; padding: 1rem; }
 .page.active { display: block; }
 .page-intro { color: var(--text-secondary); margin-bottom: 1rem; font-size: 15px; }
 
-/* CARDS */
 .card {
   background: var(--bg-card);
   border-radius: 14px;
@@ -149,14 +118,8 @@ header {
   margin-bottom: 1rem;
 }
 
-.card-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: #7eb8f7;
-  margin-bottom: 1rem;
-}
+.card-title { font-size: 16px; font-weight: 600; color: #7eb8f7; margin-bottom: 1rem; }
 
-/* FORM ELEMENTS */
 .field-label {
   display: block;
   font-size: 12px;
@@ -199,16 +162,9 @@ select:focus {
 input::placeholder { color: #555; }
 select option { background: var(--bg-card); }
 
-/* Hide number spinner arrows */
 input[type="number"]::-webkit-inner-spin-button,
-input[type="number"]::-webkit-outer-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-input[type="number"] {
-  -moz-appearance: textfield;
-  appearance: textfield;
-}
+input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 
 /* BUTTONS */
 .btn-primary {
@@ -264,8 +220,60 @@ input[type="number"] {
 
 .full-width { width: 100%; }
 
+/* ---- DYNAMIC FIELDS (speed, elevation etc.) ---- */
+.dynamic-fields {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dynamic-field-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dynamic-field-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  min-width: 80px;
+}
+
+.dynamic-field-input {
+  width: 80px !important;
+  text-align: center;
+  padding: 8px 8px !important;
+  font-size: 14px;
+}
+
+/* ---- TYPE EDITOR MODAL FIELDS ---- */
+.type-field-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.type-field-row input {
+  flex: 1;
+}
+
+/* ---- CALORIES ROW ---- */
+.calories-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0 4px;
+  border-top: 1px solid var(--border);
+  margin-top: 8px;
+  gap: 12px;
+}
+
+.calories-label { font-size: 14px; color: var(--text-primary); font-weight: 500; white-space: nowrap; }
+.calories-input { width: 100px !important; text-align: center; font-size: 15px; padding: 8px 10px !important; }
+
 /* ---- MODAL EXERCISE ROWS ---- */
-/* Column headers */
 .modal-exercise-header {
   display: grid;
   grid-template-columns: 40% 14% 14% 18% 10%;
@@ -281,12 +289,8 @@ input[type="number"] {
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
+.modal-exercise-header span:first-child { text-align: left; }
 
-.modal-exercise-header span:first-child {
-  text-align: left;
-}
-
-/* Exercise rows — name expands on focus */
 .modal-exercise-row {
   display: grid;
   grid-template-columns: 40% 14% 14% 18% 10%;
@@ -296,10 +300,7 @@ input[type="number"] {
   transition: grid-template-columns 0.2s ease;
 }
 
-/* When name input is focused, expand it and hide other columns */
-.modal-exercise-row.name-focused {
-  grid-template-columns: 1fr 0px 0px 0px 32px;
-}
+.modal-exercise-row.name-focused { grid-template-columns: 1fr 0px 0px 0px 32px; }
 
 .modal-exercise-row input {
   text-align: center;
@@ -308,13 +309,8 @@ input[type="number"] {
   transition: all 0.2s ease;
 }
 
-/* Name input */
-.modal-exercise-row input:first-child {
-  text-align: left;
-  padding: 8px 8px;
-}
+.modal-exercise-row input:first-child { text-align: left; padding: 8px 8px; }
 
-/* Hide number inputs when name is focused */
 .modal-exercise-row.name-focused input:nth-child(2),
 .modal-exercise-row.name-focused input:nth-child(3),
 .modal-exercise-row.name-focused input:nth-child(4) {
@@ -325,17 +321,7 @@ input[type="number"] {
   overflow: hidden;
 }
 
-/* Compact number inputs */
-.modal-exercise-row input:nth-child(2),
-.modal-exercise-row input:nth-child(3) {
-  max-width: 44px;
-}
-
-.modal-exercise-row input:nth-child(4) {
-  max-width: 54px;
-}
-
-/* EXERCISE LOG ROWS (Today page) */
+/* EXERCISE LOG ROWS */
 .exercise-log-row {
   display: grid;
   grid-template-columns: 1fr 60px 70px;
@@ -369,7 +355,6 @@ input[type="number"] {
   letter-spacing: 0.05em;
   text-align: center;
 }
-
 .exercise-log-header span:first-child { text-align: left; }
 
 /* SUMMARY */
@@ -407,7 +392,6 @@ input[type="number"] {
 }
 .btn-note:hover { border-color: #7eb8f7; color: #7eb8f7; }
 .btn-note.noted { border-color: var(--note-color); color: var(--note-color); }
-
 .note-text { font-size: 12px; color: var(--note-color); margin-top: 4px; font-style: italic; }
 
 /* SETUP */
@@ -490,9 +474,7 @@ input[type="number"] {
 }
 
 .stats-year-total { font-size: 12px; color: var(--text-secondary); font-weight: 400; }
-
 .stats-months { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
-
 .stats-month { background: var(--bg-input); border-radius: 8px; padding: 6px 4px; text-align: center; }
 .stats-month-name { font-size: 10px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 2px; }
 .stats-month-count { font-size: 16px; font-weight: 600; color: var(--text-secondary); }
@@ -517,7 +499,8 @@ input[type="number"] {
 
 .history-date { font-size: 13px; color: #7eb8f7; font-weight: 600; }
 .history-day-name { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
-.history-meta { font-size: 13px; color: var(--text-secondary); margin-bottom: 8px; }
+.history-meta { font-size: 13px; color: var(--text-secondary); margin-bottom: 4px; }
+.history-calories { font-size: 13px; color: var(--note-color); margin-bottom: 8px; font-weight: 500; }
 
 .history-exercise {
   display: flex;
