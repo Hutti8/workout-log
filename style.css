@@ -268,8 +268,8 @@ input[type="number"] {
 /* Column headers */
 .modal-exercise-header {
   display: grid;
-  grid-template-columns: 1fr 44px 44px 54px 32px;
-  gap: 6px;
+  grid-template-columns: 1fr 36px 36px 46px 32px;
+  gap: 4px;
   margin-bottom: 4px;
   align-items: center;
 }
@@ -303,8 +303,7 @@ input[type="number"] {
 
 .modal-exercise-row input {
   text-align: center;
-  padding: 8px 4px;
-  font-size: 14px;
+  padding: 8px 2px;
   min-width: 0;
   transition: all 0.2s ease;
 }
