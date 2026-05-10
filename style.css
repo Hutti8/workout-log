@@ -26,13 +26,84 @@ html, body {
   line-height: 1.5;
 }
 
+/* ---- AUTH SCREEN ---- */
+#auth-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+.auth-box {
+  background: var(--bg-card);
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  padding: 2rem;
+  width: 100%;
+  max-width: 400px;
+}
+
+.auth-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: #7eb8f7;
+  text-align: center;
+  margin-bottom: 6px;
+}
+
+.auth-subtitle {
+  font-size: 14px;
+  color: var(--text-secondary);
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.auth-error {
+  background: rgba(192, 57, 43, 0.15);
+  border: 1px solid var(--danger);
+  border-radius: 8px;
+  color: #e74c3c;
+  font-size: 13px;
+  padding: 10px 12px;
+  margin-bottom: 1rem;
+}
+
+.auth-divider {
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 13px;
+  margin: 1rem 0;
+  position: relative;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 42%;
+  height: 1px;
+  background: var(--border);
+}
+
+.auth-divider::before { left: 0; }
+.auth-divider::after { right: 0; }
+
+.auth-note {
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 1rem;
+}
+
+/* ---- APP LAYOUT ---- */
 #app {
   max-width: 480px;
   margin: 0 auto;
   padding-bottom: 80px;
 }
 
-/* HEADER */
 header {
   position: sticky;
   top: 0;
@@ -43,6 +114,25 @@ header {
   font-size: 18px;
   font-weight: 600;
   color: #7eb8f7;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.btn-signout {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  border-radius: 8px;
+  padding: 4px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-signout:hover {
+  border-color: var(--danger);
+  color: var(--danger);
 }
 
 /* PAGES */
@@ -91,6 +181,8 @@ header {
 input[type="text"],
 input[type="number"],
 input[type="date"],
+input[type="email"],
+input[type="password"],
 select {
   width: 100%;
   background: var(--bg-input);
@@ -110,6 +202,8 @@ input[type="date"] {
 input[type="text"]:focus,
 input[type="number"]:focus,
 input[type="date"]:focus,
+input[type="email"]:focus,
+input[type="password"]:focus,
 select:focus {
   outline: none;
   border-color: var(--accent);
@@ -149,6 +243,11 @@ input[type="number"] {
 
 .btn-primary:hover {
   background: var(--accent-hover);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .btn-outline {
@@ -305,7 +404,7 @@ input[type="number"] {
   font-style: italic;
 }
 
-/* SETUP LISTS */
+/* SETUP */
 .setup-item {
   display: flex;
   justify-content: space-between;
@@ -567,6 +666,14 @@ input[type="number"] {
   color: var(--text-secondary);
   font-size: 14px;
   padding: 2rem;
+}
+
+/* Loading spinner */
+.loading {
+  text-align: center;
+  color: var(--text-secondary);
+  padding: 2rem;
+  font-size: 14px;
 }
 
 /* BOTTOM NAV */

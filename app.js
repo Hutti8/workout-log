@@ -2,38 +2,91 @@
 // WORKOUT LOG - app.js
 // ============================================================
 
-// ---- STATE ----
-let state = {
-  days: [],
-  warmupTypes: [],
-  cardioTypes: [],
-  history: [],
-};
+import { registerUser, loginUser, logoutUser, onAuthChange, loadUserData, saveUserData } from './firebase.js';
 
+// ---- STATE ----
+let state = { days: [], warmupTypes: [], cardioTypes: [], history: [] };
+let currentUser = null;
 let editingDayIndex = -1;
 let isManualEntry = false;
 
-// ---- LOCALSTORAGE ----
-function saveState() {
-  localStorage.setItem('workoutLog', JSON.stringify(state));
+// ---- SAVE STATE ----
+async function saveState() {
+  if (!currentUser) return;
+  await saveUserData(currentUser.uid, state);
 }
 
-function loadState() {
-  const saved = localStorage.getItem('workoutLog');
-  if (saved) {
-    state = JSON.parse(saved);
-  } else {
-    state.warmupTypes = ['Treadmill', 'Stationary bike', 'Rowing machine'];
-    state.cardioTypes = ['Walk', 'Cross trainer', 'Treadmill'];
-    state.days = [
-      { name: 'Day 1', exercises: [{ name: 'Bench press', sets: 4, reps: 10, kg: 60 }, { name: 'Overhead press', sets: 3, reps: 10, kg: 40 }, { name: 'Tricep dips', sets: 3, reps: 12, kg: 0 }] },
-      { name: 'Day 2', exercises: [{ name: 'Deadlift', sets: 4, reps: 8, kg: 80 }, { name: 'Pull-ups', sets: 4, reps: 8, kg: 0 }, { name: 'Barbell curl', sets: 3, reps: 12, kg: 30 }] },
-      { name: 'Day 3', exercises: [{ name: 'Squat', sets: 4, reps: 10, kg: 70 }, { name: 'Leg press', sets: 3, reps: 12, kg: 100 }, { name: 'Calf raises', sets: 4, reps: 15, kg: 40 }] },
-      { name: 'Day 4', exercises: [{ name: 'Incline press', sets: 3, reps: 10, kg: 50 }, { name: 'Lateral raises', sets: 3, reps: 12, kg: 12 }, { name: 'Face pulls', sets: 3, reps: 15, kg: 20 }] },
-    ];
-    saveState();
+// ---- AUTH HANDLERS ----
+async function handleLogin() {
+  const email = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
+  const errEl = document.getElementById('auth-error');
+  errEl.style.display = 'none';
+
+  if (!email || !password) {
+    errEl.textContent = 'Please enter your email and password.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  try {
+    await loginUser(email, password);
+  } catch (e) {
+    errEl.textContent = 'Login failed. Check your email and password.';
+    errEl.style.display = 'block';
   }
 }
+
+async function handleRegister() {
+  const email = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
+  const errEl = document.getElementById('auth-error');
+  errEl.style.display = 'none';
+
+  if (!email || !password) {
+    errEl.textContent = 'Please enter an email and password.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  try {
+    await registerUser(email, password);
+  } catch (e) {
+    errEl.textContent = e.message || 'Registration failed.';
+    errEl.style.display = 'block';
+  }
+}
+
+async function handleSignOut() {
+  await logoutUser();
+}
+
+// ---- AUTH STATE LISTENER ----
+// This runs whenever login/logout happens
+onAuthChange(async (user) => {
+  if (user) {
+    currentUser = user;
+    // Load user data from Firestore
+    document.getElementById('auth-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    document.getElementById('bottom-nav').style.display = 'flex';
+
+    const data = await loadUserData(user.uid);
+    state = data;
+    // Render setup page if already on it
+    renderSetup();
+  } else {
+    currentUser = null;
+    state = { days: [], warmupTypes: [], cardioTypes: [], history: [] };
+    document.getElementById('auth-screen').style.display = 'flex';
+    document.getElementById('app').style.display = 'none';
+    document.getElementById('bottom-nav').style.display = 'none';
+    // Reset to idle
+    document.getElementById('today-idle').style.display = 'block';
+    document.getElementById('today-planning').style.display = 'none';
+    document.getElementById('today-summary').style.display = 'none';
+  }
+});
 
 // ---- NAVIGATION ----
 function showPage(pageId, btn) {
@@ -50,27 +103,19 @@ function showPage(pageId, btn) {
 // ---- TODAY PAGE ----
 function startWorkout(manual) {
   isManualEntry = manual;
-
   document.getElementById('today-idle').style.display = 'none';
   document.getElementById('today-planning').style.display = 'block';
   document.getElementById('today-summary').style.display = 'none';
 
   const dateCard = document.getElementById('manual-date-card');
   dateCard.style.display = manual ? 'block' : 'none';
-
   if (manual) {
-    const today = new Date().toISOString().split('T')[0];
-    document.getElementById('manual-date').value = today;
+    document.getElementById('manual-date').value = new Date().toISOString().split('T')[0];
   }
 
-  const warmupSel = document.getElementById('warmup-select');
-  warmupSel.innerHTML = state.warmupTypes.map(t => `<option>${t}</option>`).join('');
-
-  const daySel = document.getElementById('day-select');
-  daySel.innerHTML = state.days.map((d, i) => `<option value="${i}">${d.name}</option>`).join('');
-
-  const cardioSel = document.getElementById('cardio-select');
-  cardioSel.innerHTML = state.cardioTypes.map(t => `<option>${t}</option>`).join('');
+  document.getElementById('warmup-select').innerHTML = state.warmupTypes.map(t => `<option>${t}</option>`).join('');
+  document.getElementById('day-select').innerHTML = state.days.map((d, i) => `<option value="${i}">${d.name}</option>`).join('');
+  document.getElementById('cardio-select').innerHTML = state.cardioTypes.map(t => `<option>${t}</option>`).join('');
 
   loadDayExercises();
 }
@@ -105,9 +150,7 @@ function loadDayExercises() {
 
   let html = `
     <div class="exercise-log-header" style="margin-top:12px;">
-      <span>Exercise</span>
-      <span>Reps</span>
-      <span>KG</span>
+      <span>Exercise</span><span>Reps</span><span>KG</span>
     </div>
   `;
 
@@ -143,24 +186,9 @@ function buildSummary() {
   }
 
   let html = `
-    <div class="summary-row">
-      <div>
-        <div class="summary-label">Date</div>
-        <div class="summary-value">${displayDate}</div>
-      </div>
-    </div>
-    <div class="summary-row">
-      <div>
-        <div class="summary-label">Warmup</div>
-        <div class="summary-value">${warmup}${warmupTime ? ' · ' + warmupTime + ' min' : ''}</div>
-      </div>
-    </div>
-    <div class="summary-row">
-      <div>
-        <div class="summary-label">Workout</div>
-        <div class="summary-value">${day ? day.name : '-'}</div>
-      </div>
-    </div>
+    <div class="summary-row"><div><div class="summary-label">Date</div><div class="summary-value">${displayDate}</div></div></div>
+    <div class="summary-row"><div><div class="summary-label">Warmup</div><div class="summary-value">${warmup}${warmupTime ? ' · ' + warmupTime + ' min' : ''}</div></div></div>
+    <div class="summary-row"><div><div class="summary-label">Workout</div><div class="summary-value">${day ? day.name : '-'}</div></div></div>
   `;
 
   if (day) {
@@ -180,22 +208,13 @@ function buildSummary() {
     });
   }
 
-  html += `
-    <div class="summary-row" style="margin-top:4px;">
-      <div>
-        <div class="summary-label">End cardio</div>
-        <div class="summary-value">${cardio}${cardioTime ? ' · ' + cardioTime + ' min' : ''}</div>
-      </div>
-    </div>
-  `;
-
+  html += `<div class="summary-row" style="margin-top:4px;"><div><div class="summary-label">End cardio</div><div class="summary-value">${cardio}${cardioTime ? ' · ' + cardioTime + ' min' : ''}</div></div></div>`;
   document.getElementById('summary-content').innerHTML = html;
 }
 
 function toggleNote(index) {
   const btn = document.getElementById('note-btn-' + index);
   const noteDiv = document.getElementById('note-text-' + index);
-
   if (btn.classList.contains('noted')) {
     btn.classList.remove('noted');
     btn.textContent = '📝 Next time';
@@ -210,7 +229,7 @@ function toggleNote(index) {
   }
 }
 
-function saveWorkout() {
+async function saveWorkout() {
   const dayIndex = parseInt(document.getElementById('day-select').value);
   const day = state.days[dayIndex];
   const warmup = document.getElementById('warmup-select').value;
@@ -221,12 +240,7 @@ function saveWorkout() {
   const exercises = day.exercises.map((ex, i) => {
     const noteDiv = document.getElementById('note-text-' + i);
     const note = noteDiv ? noteDiv.textContent.replace('→ ', '').trim() : '';
-    return {
-      name: ex.name,
-      reps: document.getElementById('reps-' + i)?.value || '',
-      kg: document.getElementById('kg-' + i)?.value || '',
-      note,
-    };
+    return { name: ex.name, reps: document.getElementById('reps-' + i)?.value || '', kg: document.getElementById('kg-' + i)?.value || '', note };
   });
 
   exercises.forEach((ex, i) => {
@@ -243,19 +257,10 @@ function saveWorkout() {
     workoutDate = new Date().toISOString();
   }
 
-  const workout = {
-    date: workoutDate,
-    dayName: day.name,
-    warmup,
-    warmupTime,
-    cardio,
-    cardioTime,
-    exercises,
-  };
-
-  state.history.unshift(workout);
+  state.history.unshift({ date: workoutDate, dayName: day.name, warmup, warmupTime, cardio, cardioTime, exercises });
   state.history.sort((a, b) => new Date(b.date) - new Date(a.date));
-  saveState();
+
+  await saveState();
 
   document.getElementById('today-summary').style.display = 'none';
   document.getElementById('today-planning').style.display = 'none';
@@ -263,59 +268,6 @@ function saveWorkout() {
   isManualEntry = false;
 
   alert('Workout saved! Great work 💪');
-}
-
-// ---- HISTORY STATS ----
-function renderStats() {
-  const container = document.getElementById('history-stats');
-  if (state.history.length === 0) {
-    container.innerHTML = '';
-    return;
-  }
-
-  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const currentYear = new Date().getFullYear();
-  const startYear = 2025;
-
-  // Count workouts per year/month
-  const counts = {};
-  state.history.forEach(w => {
-    const d = new Date(w.date);
-    const y = d.getFullYear();
-    const m = d.getMonth(); // 0-11
-    if (!counts[y]) counts[y] = Array(12).fill(0);
-    counts[y][m]++;
-  });
-
-  // Build a card for each year from current down to startYear
-  let html = '';
-  for (let year = currentYear; year >= startYear; year--) {
-    const yearCounts = counts[year] || Array(12).fill(0);
-    const yearTotal = yearCounts.reduce((a, b) => a + b, 0);
-
-    const monthCells = MONTHS.map((name, i) => {
-      const count = yearCounts[i];
-      const hasWorkouts = count > 0;
-      return `
-        <div class="stats-month ${hasWorkouts ? 'has-workouts' : ''}">
-          <div class="stats-month-name">${name}</div>
-          <div class="stats-month-count">${count > 0 ? count : '·'}</div>
-        </div>
-      `;
-    }).join('');
-
-    html += `
-      <div class="stats-card">
-        <div class="stats-year-title">
-          <span>${year}</span>
-          <span class="stats-year-total">${yearTotal} workout${yearTotal !== 1 ? 's' : ''}</span>
-        </div>
-        <div class="stats-months">${monthCells}</div>
-      </div>
-    `;
-  }
-
-  container.innerHTML = html;
 }
 
 // ---- SETUP PAGE ----
@@ -327,10 +279,8 @@ function renderSetup() {
 
 function renderDaysList() {
   const container = document.getElementById('days-list');
-  if (state.days.length === 0) {
-    container.innerHTML = '<p class="empty-state">No days defined yet.</p>';
-    return;
-  }
+  if (!container) return;
+  if (state.days.length === 0) { container.innerHTML = '<p class="empty-state">No days defined yet.</p>'; return; }
 
   container.innerHTML = state.days.map((d, i) => {
     const noteRows = d.exercises
@@ -340,8 +290,7 @@ function renderDaysList() {
         <div class="setup-note-row">
           <span class="setup-note-text">📝 ${ex.name}: ${ex.lastNote}</span>
           <button class="btn-clear-note" onclick="clearNote(${i}, ${exIndex})">✓ Clear</button>
-        </div>
-      `).join('');
+        </div>`).join('');
 
     return `
       <div class="setup-item" style="flex-direction:column; align-items:stretch; gap:4px;">
@@ -356,81 +305,67 @@ function renderDaysList() {
           </div>
         </div>
         ${noteRows ? `<div class="setup-day-notes">${noteRows}</div>` : ''}
-      </div>
-    `;
+      </div>`;
   }).join('');
 }
 
-function clearNote(dayIndex, exIndex) {
+async function clearNote(dayIndex, exIndex) {
   state.days[dayIndex].exercises[exIndex].lastNote = '';
-  saveState();
+  await saveState();
   renderDaysList();
 }
 
 function renderWarmupTypesList() {
   const container = document.getElementById('warmup-types-list');
-  if (state.warmupTypes.length === 0) {
-    container.innerHTML = '<p class="empty-state">No warmup types yet.</p>';
-    return;
-  }
-  container.innerHTML = state.warmupTypes.map((t, i) => `
-    <div class="setup-item">
-      <div class="setup-item-name">${t}</div>
-      <button class="btn-danger" onclick="deleteWarmupType(${i})">🗑</button>
-    </div>
-  `).join('');
+  if (!container) return;
+  container.innerHTML = state.warmupTypes.length === 0
+    ? '<p class="empty-state">No warmup types yet.</p>'
+    : state.warmupTypes.map((t, i) => `<div class="setup-item"><div class="setup-item-name">${t}</div><button class="btn-danger" onclick="deleteWarmupType(${i})">🗑</button></div>`).join('');
 }
 
 function renderCardioTypesList() {
   const container = document.getElementById('cardio-types-list');
-  if (state.cardioTypes.length === 0) {
-    container.innerHTML = '<p class="empty-state">No cardio types yet.</p>';
-    return;
-  }
-  container.innerHTML = state.cardioTypes.map((t, i) => `
-    <div class="setup-item">
-      <div class="setup-item-name">${t}</div>
-      <button class="btn-danger" onclick="deleteCardioType(${i})">🗑</button>
-    </div>
-  `).join('');
+  if (!container) return;
+  container.innerHTML = state.cardioTypes.length === 0
+    ? '<p class="empty-state">No cardio types yet.</p>'
+    : state.cardioTypes.map((t, i) => `<div class="setup-item"><div class="setup-item-name">${t}</div><button class="btn-danger" onclick="deleteCardioType(${i})">🗑</button></div>`).join('');
 }
 
-function addWarmupType() {
+async function addWarmupType() {
   const input = document.getElementById('new-warmup-input');
   const val = input.value.trim();
   if (!val) return;
   state.warmupTypes.push(val);
-  saveState();
+  await saveState();
   input.value = '';
   renderWarmupTypesList();
 }
 
-function deleteWarmupType(i) {
+async function deleteWarmupType(i) {
   state.warmupTypes.splice(i, 1);
-  saveState();
+  await saveState();
   renderWarmupTypesList();
 }
 
-function addCardioType() {
+async function addCardioType() {
   const input = document.getElementById('new-cardio-input');
   const val = input.value.trim();
   if (!val) return;
   state.cardioTypes.push(val);
-  saveState();
+  await saveState();
   input.value = '';
   renderCardioTypesList();
 }
 
-function deleteCardioType(i) {
+async function deleteCardioType(i) {
   state.cardioTypes.splice(i, 1);
-  saveState();
+  await saveState();
   renderCardioTypesList();
 }
 
 // ---- DAY EDITOR MODAL ----
 function openDayEditor(index) {
   editingDayIndex = index;
-  const modal = document.getElementById('day-editor-overlay');
   const title = document.getElementById('modal-title');
   const nameInput = document.getElementById('modal-day-name');
   const exList = document.getElementById('modal-exercise-list');
@@ -450,11 +385,9 @@ function openDayEditor(index) {
         <input type="number" value="${ex.reps || ''}" placeholder="-" min="0" />
         <input type="number" value="${ex.kg || ''}" placeholder="-" min="0" step="0.5" />
         <button class="btn-danger" onclick="this.parentElement.remove()">🗑</button>
-      </div>
-    `).join('');
+      </div>`).join('');
   }
-
-  modal.style.display = 'flex';
+  document.getElementById('day-editor-overlay').style.display = 'flex';
 }
 
 function addExerciseToModal() {
@@ -474,7 +407,7 @@ function closeDayEditor() {
   document.getElementById('day-editor-overlay').style.display = 'none';
 }
 
-function saveDay() {
+async function saveDay() {
   const name = document.getElementById('modal-day-name').value.trim();
   if (!name) return alert('Please enter a day name.');
 
@@ -486,9 +419,7 @@ function saveDay() {
     const sets = parseInt(inputs[1].value) || 3;
     const reps = parseInt(inputs[2].value) || 0;
     const kg = parseFloat(inputs[3].value) || 0;
-    const existing = editingDayIndex !== -1
-      ? state.days[editingDayIndex].exercises.find(e => e.name === exName)
-      : null;
+    const existing = editingDayIndex !== -1 ? state.days[editingDayIndex].exercises.find(e => e.name === exName) : null;
     if (exName) exercises.push({ name: exName, sets, reps, kg, lastNote: existing?.lastNote || '' });
   });
 
@@ -498,37 +429,58 @@ function saveDay() {
     state.days[editingDayIndex] = { name, exercises };
   }
 
-  saveState();
+  await saveState();
   closeDayEditor();
   renderDaysList();
 }
 
-function deleteDay(i) {
+async function deleteDay(i) {
   if (!confirm('Delete this day?')) return;
   state.days.splice(i, 1);
-  saveState();
+  await saveState();
   renderDaysList();
 }
 
 // ---- HISTORY PAGE ----
+function renderStats() {
+  const container = document.getElementById('history-stats');
+  if (!container || state.history.length === 0) { if (container) container.innerHTML = ''; return; }
+
+  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const currentYear = new Date().getFullYear();
+  const counts = {};
+  state.history.forEach(w => {
+    const d = new Date(w.date);
+    const y = d.getFullYear();
+    const m = d.getMonth();
+    if (!counts[y]) counts[y] = Array(12).fill(0);
+    counts[y][m]++;
+  });
+
+  let html = '';
+  for (let year = currentYear; year >= 2025; year--) {
+    const yearCounts = counts[year] || Array(12).fill(0);
+    const yearTotal = yearCounts.reduce((a, b) => a + b, 0);
+    const monthCells = MONTHS.map((name, i) => {
+      const count = yearCounts[i];
+      return `<div class="stats-month ${count > 0 ? 'has-workouts' : ''}"><div class="stats-month-name">${name}</div><div class="stats-month-count">${count > 0 ? count : '·'}</div></div>`;
+    }).join('');
+    html += `<div class="stats-card"><div class="stats-year-title"><span>${year}</span><span class="stats-year-total">${yearTotal} workout${yearTotal !== 1 ? 's' : ''}</span></div><div class="stats-months">${monthCells}</div></div>`;
+  }
+  container.innerHTML = html;
+}
+
 function renderHistory() {
   renderStats();
-
   const container = document.getElementById('history-list');
-  if (state.history.length === 0) {
-    container.innerHTML = '<p class="empty-state">No workouts saved yet.<br>Complete your first session!</p>';
-    return;
-  }
+  if (!container) return;
+  if (state.history.length === 0) { container.innerHTML = '<p class="empty-state">No workouts saved yet.<br>Complete your first session!</p>'; return; }
 
   container.innerHTML = state.history.map((w, i) => {
     const date = new Date(w.date).toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     const exercises = w.exercises.map(ex => `
-      <div class="history-exercise">
-        <span>${ex.name}</span>
-        <span>${ex.reps ? ex.reps + ' reps' : ''} ${ex.kg ? '· ' + ex.kg + ' kg' : ''}</span>
-      </div>
-      ${ex.note ? `<div class="history-note">→ ${ex.note}</div>` : ''}
-    `).join('');
+      <div class="history-exercise"><span>${ex.name}</span><span>${ex.reps ? ex.reps + ' reps' : ''} ${ex.kg ? '· ' + ex.kg + ' kg' : ''}</span></div>
+      ${ex.note ? `<div class="history-note">→ ${ex.note}</div>` : ''}`).join('');
 
     return `
       <div class="history-card">
@@ -537,23 +489,40 @@ function renderHistory() {
           <button class="btn-danger-sm" onclick="deleteWorkout(${i})">🗑 Delete</button>
         </div>
         <div class="history-day-name">${w.dayName}</div>
-        <div class="history-meta">
-          🔥 ${w.warmup}${w.warmupTime ? ' · ' + w.warmupTime + ' min' : ''}
-          &nbsp;·&nbsp;
-          🏃 ${w.cardio}${w.cardioTime ? ' · ' + w.cardioTime + ' min' : ''}
-        </div>
+        <div class="history-meta">🔥 ${w.warmup}${w.warmupTime ? ' · ' + w.warmupTime + ' min' : ''} &nbsp;·&nbsp; 🏃 ${w.cardio}${w.cardioTime ? ' · ' + w.cardioTime + ' min' : ''}</div>
         ${exercises}
-      </div>
-    `;
+      </div>`;
   }).join('');
 }
 
-function deleteWorkout(index) {
+async function deleteWorkout(index) {
   if (!confirm('Delete this workout from history?')) return;
   state.history.splice(index, 1);
-  saveState();
+  await saveState();
   renderHistory();
 }
 
-// ---- INIT ----
-loadState();
+// ---- EXPOSE FUNCTIONS TO HTML ----
+window.handleLogin = handleLogin;
+window.handleRegister = handleRegister;
+window.handleSignOut = handleSignOut;
+window.showPage = showPage;
+window.startWorkout = startWorkout;
+window.startManualWorkout = startManualWorkout;
+window.showSummary = showSummary;
+window.backToPlanning = backToPlanning;
+window.loadDayExercises = loadDayExercises;
+window.toggleNote = toggleNote;
+window.saveWorkout = saveWorkout;
+window.renderSetup = renderSetup;
+window.clearNote = clearNote;
+window.addWarmupType = addWarmupType;
+window.deleteWarmupType = deleteWarmupType;
+window.addCardioType = addCardioType;
+window.deleteCardioType = deleteCardioType;
+window.openDayEditor = openDayEditor;
+window.addExerciseToModal = addExerciseToModal;
+window.closeDayEditor = closeDayEditor;
+window.saveDay = saveDay;
+window.deleteDay = deleteDay;
+window.deleteWorkout = deleteWorkout;

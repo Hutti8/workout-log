@@ -9,23 +9,46 @@
 </head>
 <body>
 
-  <div id="app">
+  <!-- LOGIN SCREEN -->
+  <div id="auth-screen">
+    <div class="auth-box">
+      <div class="auth-title">💪 Workout Log</div>
+      <div class="auth-subtitle">Sign in to your account</div>
 
-    <!-- HEADER -->
+      <div id="auth-error" class="auth-error" style="display:none;"></div>
+
+      <label class="field-label">Email</label>
+      <input type="email" id="auth-email" placeholder="your@email.com" />
+
+      <label class="field-label">Password</label>
+      <input type="password" id="auth-password" placeholder="Password" />
+
+      <button class="btn-primary full-width" style="margin-top:1rem;" onclick="handleLogin()">Sign in</button>
+
+      <div class="auth-divider">or</div>
+
+      <button class="btn-outline full-width" onclick="handleRegister()">Create account</button>
+
+      <p class="auth-note">Max 10 accounts total</p>
+    </div>
+  </div>
+
+  <!-- MAIN APP (hidden until logged in) -->
+  <div id="app" style="display:none;">
+
     <header>
       <span id="header-title">Workout Log</span>
+      <button class="btn-signout" onclick="handleSignOut()">Sign out</button>
     </header>
 
     <!-- PAGE: TODAY -->
     <section id="page-today" class="page active">
 
-      <!-- IDLE -->
       <div id="today-idle">
         <p class="page-intro">Ready to train?</p>
         <button class="btn-primary full-width" onclick="startWorkout(false)">Start workout</button>
       </div>
 
-      <!-- PLANNING -->
       <div id="today-planning" style="display:none;">
 
         <div class="card" id="manual-date-card" style="display:none;">
@@ -61,7 +84,6 @@
 
       </div>
 
-      <!-- SUMMARY -->
       <div id="today-summary" style="display:none;">
         <div class="card">
           <div class="card-title">📋 Summary</div>
@@ -132,10 +154,10 @@
       </div>
     </div>
 
-  </div>
+  </div><!-- end #app -->
 
   <!-- BOTTOM NAV -->
-  <nav id="bottom-nav">
+  <nav id="bottom-nav" style="display:none;">
     <button class="nav-btn active" onclick="showPage('today', this)">
       <span class="nav-icon">🏋️</span>
       <span class="nav-label">Today</span>
@@ -150,11 +172,11 @@
     </button>
   </nav>
 
-    <script src="app.js"></script>
-    <script>
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/service-worker.js');
-      }
-    </script>
-  </body>
+  <script src="app.js" type="module"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/workout-log/service-worker.js');
+    }
+  </script>
+</body>
 </html>
