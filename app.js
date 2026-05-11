@@ -842,11 +842,137 @@ function renderHistory() {
       <div class="history-card">
         <div class="history-card-header">
           <div class="history-date">${date}</div>
-          <button class="btn-danger-sm" onclick="deleteWorkout(${i})">🗑 Delete</button>
+          <div style="display:flex; gap:6px;">
+            <button class="btn-edit-sm" onclick="openHistoryEdit(${i})">✏️ Edit</button>
+            <button class="btn-danger-sm" onclick="deleteWorkout(${i})">🗑 Delete</button>
+          </div>
         </div>
         ${body}
       </div>`;
   }).join('');
+}
+
+// ---- HISTORY EDIT MODAL ----
+let editingHistoryIndex = -1;
+
+function openHistoryEdit(index) {
+  editingHistoryIndex = index;
+  const w = state.history[index];
+
+  // Date
+  const d = new Date(w.date);
+  document.getElementById('hedit-date').value = d.toISOString().split('T')[0];
+
+  // Calories
+  document.getElementById('hedit-calories').value = w.calories || '';
+
+  // Exercises
+  const exSection = document.getElementById('hedit-exercises-section');
+  const exList = document.getElementById('hedit-exercise-list');
+  if (w.exercises && w.exercises.length > 0) {
+    exSection.style.display = 'block';
+    exList.innerHTML = w.exercises.map((ex, i) => `
+      <div class="modal-exercise-row" id="hedit-ex-row-${i}">
+        <input type="text" value="${ex.name || ''}" placeholder="Exercise" />
+        <input type="number" value="${ex.sets || ''}" placeholder="-" min="1" max="99" />
+        <input type="number" value="${ex.reps || ''}" placeholder="-" min="0" max="99" />
+        <input type="number" value="${ex.kg || ''}" placeholder="-" min="0" max="999" step="0.5" />
+        <span></span>
+      </div>`).join('');
+
+    // Notes — one per line
+    document.getElementById('hedit-notes').value = w.exercises.map(ex => ex.note || '').join('\n');
+  } else {
+    exSection.style.display = 'none';
+    document.getElementById('hedit-notes').value = '';
+  }
+
+  // Cardio entries
+  const cardioSection = document.getElementById('hedit-cardio-section');
+  const cardioList = document.getElementById('hedit-cardio-list');
+  const entries = w.cardioEntries || (w.cardio ? [{ name: w.cardio, time: w.cardioTime || '', fields: w.cardioFields || {} }] : []);
+  if (entries.length > 0) {
+    cardioSection.style.display = 'block';
+    cardioList.innerHTML = entries.map((c, i) => {
+      const fieldsStr = c.fields ? Object.entries(c.fields).filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`).join(', ') : '';
+      return `
+        <div class="hedit-cardio-row" id="hedit-cardio-row-${i}">
+          <input type="text" value="${c.name || ''}" placeholder="Type" style="margin-bottom:6px;" />
+          <div style="display:flex; gap:8px;">
+            <input type="number" value="${c.time || ''}" placeholder="min" min="1" max="300" style="width:80px;" />
+            <input type="text" value="${fieldsStr}" placeholder="e.g. Speed: 5, Load: 3" style="flex:1;" />
+          </div>
+        </div>`;
+    }).join('');
+  } else {
+    cardioSection.style.display = 'none';
+  }
+
+  document.getElementById('history-edit-overlay').style.display = 'flex';
+}
+
+function closeHistoryEdit() {
+  document.getElementById('history-edit-overlay').style.display = 'none';
+  editingHistoryIndex = -1;
+}
+
+async function saveHistoryEdit() {
+  if (editingHistoryIndex === -1) return;
+  const w = state.history[editingHistoryIndex];
+
+  // Date
+  const dateVal = document.getElementById('hedit-date').value;
+  if (dateVal) w.date = new Date(dateVal + 'T12:00:00').toISOString();
+
+  // Calories
+  w.calories = document.getElementById('hedit-calories').value || '';
+
+  // Exercises
+  if (w.exercises && w.exercises.length > 0) {
+    const notes = document.getElementById('hedit-notes').value.split('\n');
+    w.exercises = w.exercises.map((ex, i) => {
+      const row = document.getElementById(`hedit-ex-row-${i}`);
+      if (!row) return ex;
+      const inputs = row.querySelectorAll('input');
+      return {
+        name: inputs[0].value.trim() || ex.name,
+        sets: inputs[1].value || ex.sets,
+        reps: inputs[2].value || ex.reps,
+        kg: inputs[3].value || ex.kg,
+        note: (notes[i] || '').trim()
+      };
+    });
+  }
+
+  // Cardio entries
+  const entries = w.cardioEntries || (w.cardio ? [{ name: w.cardio, time: w.cardioTime || '', fields: w.cardioFields || {} }] : []);
+  if (entries.length > 0) {
+    w.cardioEntries = entries.map((c, i) => {
+      const row = document.getElementById(`hedit-cardio-row-${i}`);
+      if (!row) return c;
+      const inputs = row.querySelectorAll('input');
+      const name = inputs[0].value.trim() || c.name;
+      const time = inputs[1].value || c.time;
+      // Parse fields from "Key: val, Key2: val2" format
+      const fieldsRaw = inputs[2].value;
+      const fields = {};
+      fieldsRaw.split(',').forEach(part => {
+        const [k, v] = part.split(':').map(s => s.trim());
+        if (k && v) fields[k] = v;
+      });
+      return { name, time, fields };
+    });
+    // Clean up old single-cardio fields
+    delete w.cardio;
+    delete w.cardioTime;
+    delete w.cardioFields;
+  }
+
+  // Re-sort history by date
+  state.history.sort((a, b) => new Date(b.date) - new Date(a.date));
+  await saveState();
+  closeHistoryEdit();
+  renderHistory();
 }
 
 async function deleteWorkout(index) {
@@ -885,4 +1011,7 @@ window.closeDayEditor = closeDayEditor;
 window.saveDay = saveDay;
 window.deleteDay = deleteDay;
 window.deleteWorkout = deleteWorkout;
+window.openHistoryEdit = openHistoryEdit;
+window.closeHistoryEdit = closeHistoryEdit;
+window.saveHistoryEdit = saveHistoryEdit;
 window.renderAdvancedStats = renderAdvancedStats;

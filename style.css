@@ -87,6 +87,11 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 .btn-danger-sm { background: transparent; color: var(--danger); border: 1px solid var(--danger); border-radius: 8px; padding: 4px 10px; font-size: 12px; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
 .btn-danger-sm:hover { background: rgba(192,57,43,0.12); }
 
+.btn-edit-sm { background: transparent; color: #7eb8f7; border: 1px solid #7eb8f7; border-radius: 8px; padding: 4px 10px; font-size: 12px; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+.btn-edit-sm:hover { background: rgba(126,184,247,0.12); }
+
+.hedit-cardio-row { background: var(--bg-input); border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin-bottom: 8px; }
+
 .full-width { width: 100%; }
 
 /* ---- CARDIO ENTRY ROWS ---- */
