@@ -344,12 +344,15 @@ function resumeDraft() {
     addCardioEntry();
   }
 
-  // Go straight to summary — that's where the user left off
+  // Go straight to summary — show planning momentarily so DOM inputs are readable
   document.getElementById('today-planning').style.display = 'block';
-  buildSummary();
-  document.getElementById('today-planning').style.display = 'none';
-  document.getElementById('today-summary').style.display = 'block';
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  // Use setTimeout to let the browser render the inputs before buildSummary reads them
+  setTimeout(() => {
+    buildSummary();
+    document.getElementById('today-planning').style.display = 'none';
+    document.getElementById('today-summary').style.display = 'block';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, 50);
 }
 
 function discardDraft() {
