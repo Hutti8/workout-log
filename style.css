@@ -222,3 +222,64 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 .nav-btn.active { color: var(--text-secondary); }
 .nav-icon { font-size: 22px; }
 .nav-label { font-size: 11px; font-weight: 500; }
+
+/* ============================================================
+   PC HISTORY LAYOUT — only activates on wide screens
+   ============================================================ */
+
+#history-layout {
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-start;
+}
+
+#history-left {
+  flex: 1;
+  min-width: 0;
+}
+
+#history-right {
+  display: none; /* hidden on mobile */
+  width: 420px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 70px;
+  max-height: calc(100vh - 90px);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+/* Scrollbar styling for the right panel */
+#history-right::-webkit-scrollbar { width: 4px; }
+#history-right::-webkit-scrollbar-track { background: transparent; }
+#history-right::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* Chart canvas sizing */
+#history-right canvas {
+  max-height: 180px;
+}
+
+/* No-data message inside chart cards */
+.chart-empty {
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-align: center;
+  padding: 1.5rem 0;
+}
+
+@media (min-width: 900px) {
+  #app {
+    max-width: 1200px;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  /* On PC the history page gets the two-column layout */
+  #page-history {
+    padding: 1rem 0;
+  }
+
+  #history-right {
+    display: block;
+  }
+}

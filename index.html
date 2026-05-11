@@ -6,6 +6,7 @@
   <meta name="theme-color" content="#1a1a1e" />
   <title>Workout Log</title>
   <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
 
@@ -123,10 +124,34 @@
 
     <!-- PAGE: HISTORY -->
     <section id="page-history" class="page">
-      <button class="btn-outline full-width" onclick="startManualWorkout(false)" style="margin-bottom:0.5rem;">+ Add workout manually</button>
-      <button class="btn-outline full-width" onclick="startManualWorkout(true)" style="margin-bottom:1rem;">+ Add cardio manually</button>
-      <div id="history-stats"></div>
-      <div id="history-list"></div>
+      <div id="history-layout">
+
+        <!-- Left: existing history -->
+        <div id="history-left">
+          <button class="btn-outline full-width" onclick="startManualWorkout(false)" style="margin-bottom:0.5rem;">+ Add workout manually</button>
+          <button class="btn-outline full-width" onclick="startManualWorkout(true)" style="margin-bottom:1rem;">+ Add cardio manually</button>
+          <div id="history-stats"></div>
+          <div id="history-list"></div>
+        </div>
+
+        <!-- Right: advanced PC stats panel (hidden on mobile) -->
+        <div id="history-right">
+          <div class="card">
+            <div class="card-title">📅 Workout frequency</div>
+            <canvas id="chart-frequency"></canvas>
+          </div>
+          <div class="card">
+            <div class="card-title">🔥 Calories over time</div>
+            <canvas id="chart-calories"></canvas>
+          </div>
+          <div class="card">
+            <div class="card-title">📈 Volume over time (total kg)</div>
+            <canvas id="chart-volume"></canvas>
+          </div>
+          <div id="exercise-charts"></div>
+        </div>
+
+      </div>
     </section>
 
     <!-- DAY EDITOR MODAL -->

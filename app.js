@@ -14,6 +14,9 @@ let editingTypeKind = null;
 let editingTypeIndex = -1;
 let cardioEntryCount = 0;
 
+// Chart instances — kept so we can destroy before redrawing
+let chartInstances = {};
+
 // ---- HELPERS ----
 function normaliseTypes(arr) {
   return (arr || []).map(t => typeof t === 'string' ? { name: t, fields: [] } : t);
@@ -346,7 +349,13 @@ async function saveWorkout() {
     const exercises = day.exercises.map((ex, i) => {
       const noteDiv = document.getElementById('note-text-' + i);
       const note = noteDiv ? noteDiv.textContent.replace('→ ', '').trim() : '';
-      return { name: ex.name, sets: ex.sets || '', reps: document.getElementById('reps-' + i)?.value || '', kg: document.getElementById('kg-' + i)?.value || '', note };
+      return {
+        name: ex.name,
+        sets: ex.sets || '',
+        reps: document.getElementById('reps-' + i)?.value || '',
+        kg: document.getElementById('kg-' + i)?.value || '',
+        note
+      };
     });
 
     exercises.forEach((ex, i) => {
@@ -578,8 +587,204 @@ function renderStats() {
   container.innerHTML = html;
 }
 
+// ---- ADVANCED PC STATS ----
+function destroyChart(id) {
+  if (chartInstances[id]) {
+    chartInstances[id].destroy();
+    delete chartInstances[id];
+  }
+}
+
+function makeChartOptions(yLabel) {
+  return {
+    responsive: true,
+    maintainAspectRatio: true,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: {
+        ticks: { color: '#9a9a9f', font: { size: 10 }, maxRotation: 45 },
+        grid: { color: '#3a3a42' }
+      },
+      y: {
+        ticks: { color: '#9a9a9f', font: { size: 10 } },
+        grid: { color: '#3a3a42' },
+        title: yLabel ? { display: true, text: yLabel, color: '#9a9a9f', font: { size: 11 } } : { display: false }
+      }
+    }
+  };
+}
+
+function renderAdvancedStats() {
+  // Only run on PC
+  if (window.innerWidth < 900) return;
+
+  const rightPanel = document.getElementById('history-right');
+  if (!rightPanel) return;
+
+  if (!state.history || state.history.length === 0) {
+    rightPanel.innerHTML = '<div class="card"><div class="card-title">📊 Advanced stats</div><p class="chart-empty">No workout data yet.</p></div>';
+    return;
+  }
+
+  // Sort oldest first for chronological charts
+  const sorted = [...state.history].sort((a, b) => new Date(a.date) - new Date(b.date));
+
+  // ---- 1. WORKOUT FREQUENCY (bar chart — workouts per month) ----
+  const freqMap = {};
+  sorted.forEach(w => {
+    const d = new Date(w.date);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    freqMap[key] = (freqMap[key] || 0) + 1;
+  });
+  const freqLabels = Object.keys(freqMap);
+  const freqData = freqLabels.map(k => freqMap[k]);
+
+  destroyChart('frequency');
+  const freqCanvas = document.getElementById('chart-frequency');
+  if (freqCanvas) {
+    chartInstances['frequency'] = new Chart(freqCanvas, {
+      type: 'bar',
+      data: {
+        labels: freqLabels,
+        datasets: [{
+          data: freqData,
+          backgroundColor: '#1a3a6e',
+          borderColor: '#7eb8f7',
+          borderWidth: 1,
+          borderRadius: 4
+        }]
+      },
+      options: makeChartOptions('sessions')
+    });
+  }
+
+  // ---- 2. CALORIES OVER TIME (line chart) ----
+  const calWorkouts = sorted.filter(w => w.calories && !isNaN(parseFloat(w.calories)));
+  const calLabels = calWorkouts.map(w => new Date(w.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }));
+  const calData = calWorkouts.map(w => parseFloat(w.calories));
+
+  destroyChart('calories');
+  const calCanvas = document.getElementById('chart-calories');
+  if (calCanvas) {
+    if (calData.length === 0) {
+      calCanvas.style.display = 'none';
+      calCanvas.insertAdjacentHTML('afterend', '<p class="chart-empty">No calorie data yet.</p>');
+    } else {
+      calCanvas.style.display = '';
+      chartInstances['calories'] = new Chart(calCanvas, {
+        type: 'line',
+        data: {
+          labels: calLabels,
+          datasets: [{
+            data: calData,
+            borderColor: '#f0a500',
+            backgroundColor: 'rgba(240,165,0,0.1)',
+            tension: 0.3,
+            pointRadius: 4,
+            pointBackgroundColor: '#f0a500',
+            fill: true
+          }]
+        },
+        options: makeChartOptions('kcal')
+      });
+    }
+  }
+
+  // ---- 3. VOLUME OVER TIME (total kg lifted per session) ----
+  const volWorkouts = sorted.filter(w => w.exercises && w.exercises.length > 0);
+  const volLabels = volWorkouts.map(w => new Date(w.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }));
+  const volData = volWorkouts.map(w =>
+    w.exercises.reduce((sum, ex) => sum + ((parseFloat(ex.kg) || 0) * (parseInt(ex.reps) || 0)), 0)
+  );
+
+  destroyChart('volume');
+  const volCanvas = document.getElementById('chart-volume');
+  if (volCanvas) {
+    if (volData.length === 0) {
+      volCanvas.style.display = 'none';
+      volCanvas.insertAdjacentHTML('afterend', '<p class="chart-empty">No lifting data yet.</p>');
+    } else {
+      volCanvas.style.display = '';
+      chartInstances['volume'] = new Chart(volCanvas, {
+        type: 'line',
+        data: {
+          labels: volLabels,
+          datasets: [{
+            data: volData,
+            borderColor: '#7eb8f7',
+            backgroundColor: 'rgba(126,184,247,0.1)',
+            tension: 0.3,
+            pointRadius: 4,
+            pointBackgroundColor: '#7eb8f7',
+            fill: true
+          }]
+        },
+        options: makeChartOptions('kg')
+      });
+    }
+  }
+
+  // ---- 4. PER-EXERCISE KG PROGRESS (one line chart per exercise) ----
+  const exMap = {};
+  sorted.forEach(w => {
+    if (!w.exercises) return;
+    const dateLabel = new Date(w.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+    w.exercises.forEach(ex => {
+      if (!ex.name || ex.kg === '' || ex.kg === undefined) return;
+      const kg = parseFloat(ex.kg);
+      if (isNaN(kg)) return;
+      if (!exMap[ex.name]) exMap[ex.name] = { labels: [], data: [] };
+      exMap[ex.name].labels.push(dateLabel);
+      exMap[ex.name].data.push(kg);
+    });
+  });
+
+  const exContainer = document.getElementById('exercise-charts');
+  if (exContainer) {
+    // Destroy old per-exercise charts
+    Object.keys(chartInstances).forEach(k => {
+      if (k.startsWith('ex-')) destroyChart(k);
+    });
+    exContainer.innerHTML = '';
+
+    Object.entries(exMap).forEach(([name, { labels, data }]) => {
+      if (data.length < 2) return; // need at least 2 data points for a useful chart
+
+      const safeId = 'ex-' + name.replace(/[^a-zA-Z0-9]/g, '_');
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML = `<div class="card-title">💪 ${name}</div><canvas id="chart-${safeId}"></canvas>`;
+      exContainer.appendChild(card);
+
+      const canvas = card.querySelector('canvas');
+      chartInstances[safeId] = new Chart(canvas, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            data,
+            borderColor: '#7eb8f7',
+            backgroundColor: 'rgba(126,184,247,0.08)',
+            tension: 0.3,
+            pointRadius: 4,
+            pointBackgroundColor: '#7eb8f7',
+            fill: true
+          }]
+        },
+        options: makeChartOptions('kg')
+      });
+    });
+
+    if (exContainer.innerHTML === '') {
+      exContainer.innerHTML = '<div class="card"><div class="card-title">💪 Exercise progress</div><p class="chart-empty">Log at least 2 sessions with the same exercises to see progress charts.</p></div>';
+    }
+  }
+}
+
 function renderHistory() {
   renderStats();
+  renderAdvancedStats();
+
   const container = document.getElementById('history-list');
   if (!container) return;
   if (state.history.length === 0) { container.innerHTML = '<p class="empty-state">No workouts saved yet.<br>Complete your first session!</p>'; return; }
@@ -600,17 +805,20 @@ function renderHistory() {
       }
       body += `<div class="history-meta">🔥 ${warmupStr}</div>`;
       body += `<div class="history-day-name">${w.dayName || ''}</div>`;
-      // Exercises
+      // Exercises — now includes sets
       if (w.exercises) {
         body += w.exercises.map(ex => `
-          <div class="history-exercise"><span>${ex.name}</span><span>${ex.reps ? ex.reps + ' reps' : ''} ${ex.kg ? '· ' + ex.kg + ' kg' : ''}</span></div>
+          <div class="history-exercise">
+            <span>${ex.name}</span>
+            <span>${ex.sets ? ex.sets + ' sets · ' : ''}${ex.reps ? ex.reps + ' reps' : ''} ${ex.kg ? '· ' + ex.kg + ' kg' : ''}</span>
+          </div>
           ${ex.note ? `<div class="history-note">→ ${ex.note}</div>` : ''}`).join('');
       }
     }
 
     // Cardio entries (new format)
     if (w.cardioEntries && w.cardioEntries.length > 0) {
-      w.cardioEntries.forEach((c, ci) => {
+      w.cardioEntries.forEach((c) => {
         let cardioStr = c.name + (c.time ? ` · ${c.time} min` : '');
         if (c.fields) {
           const extras = Object.entries(c.fields).filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`).join(' · ');
@@ -677,3 +885,4 @@ window.closeDayEditor = closeDayEditor;
 window.saveDay = saveDay;
 window.deleteDay = deleteDay;
 window.deleteWorkout = deleteWorkout;
+window.renderAdvancedStats = renderAdvancedStats;
