@@ -195,6 +195,9 @@ function saveDraft() {
       draft.manualDate = document.getElementById('manual-date')?.value || '';
     }
 
+    draft.warmupVisible = document.getElementById('section-warmup').style.display !== 'none';
+    draft.cardioVisible = document.getElementById('section-cardio').style.display !== 'none';
+
     if (!isCardioOnly) {
       // Warmup
       const warmupIdx = parseInt(document.getElementById('warmup-select')?.value || '0');
@@ -274,27 +277,32 @@ function resumeDraft() {
   if (isManualEntry && draft.manualDate) document.getElementById('manual-date').value = draft.manualDate;
 
   if (!isCardioOnly) {
-    document.getElementById('warmup-select').innerHTML = state.warmupTypes.map((t, i) => `<option value="${i}">${t.name}</option>`).join('');
-    if (draft.warmupIdx !== undefined) document.getElementById('warmup-select').value = draft.warmupIdx;
-    renderWarmupFields();
-
-    // Restore warmup time + dynamic fields AFTER renderWarmupFields has built them
-    if (draft.warmupTime) document.getElementById('warmup-time').value = draft.warmupTime;
-    if (draft.warmupFields) {
-      const warmupType = state.warmupTypes[draft.warmupIdx || 0];
-      if (warmupType && warmupType.fields) {
-        warmupType.fields.forEach(f => {
-          const el = document.getElementById(`field-warmup-${f.toLowerCase().replace(/\s/g,'_')}`);
-          if (el && draft.warmupFields[f]) el.value = draft.warmupFields[f];
-        });
+    // Restore warmup if it was visible
+    if (draft.warmupVisible) {
+      document.getElementById('warmup-select').innerHTML = state.warmupTypes.map((t, i) => `<option value="${i}">${t.name}</option>`).join('');
+      if (draft.warmupIdx !== undefined) document.getElementById('warmup-select').value = draft.warmupIdx;
+      renderWarmupFields();
+      if (draft.warmupTime) document.getElementById('warmup-time').value = draft.warmupTime;
+      if (draft.warmupFields) {
+        const warmupType = state.warmupTypes[draft.warmupIdx || 0];
+        if (warmupType && warmupType.fields) {
+          warmupType.fields.forEach(f => {
+            const el = document.getElementById(`field-warmup-${f.toLowerCase().replace(/\s/g,'_')}`);
+            if (el && draft.warmupFields[f]) el.value = draft.warmupFields[f];
+          });
+        }
       }
+      document.getElementById('section-warmup').style.display = 'block';
+      document.getElementById('btn-add-warmup').style.display = 'none';
+    } else {
+      document.getElementById('section-warmup').style.display = 'none';
+      document.getElementById('btn-add-warmup').style.display = '';
     }
 
     document.getElementById('day-select').innerHTML = state.days.map((d, i) => `<option value="${i}">${d.name}</option>`).join('');
     if (draft.dayIndex !== undefined) document.getElementById('day-select').value = draft.dayIndex;
     loadDayExercises();
 
-    // Restore reps/kg
     if (draft.exercises) {
       draft.exercises.forEach((ex, i) => {
         const repsEl = document.getElementById('reps-' + i);
@@ -309,7 +317,9 @@ function resumeDraft() {
   const container = document.getElementById('cardio-entries-list');
   container.innerHTML = '';
   cardioEntryCount = 0;
-  if (draft.cardioEntries && draft.cardioEntries.length > 0) {
+  if (draft.cardioEntries && draft.cardioEntries.length > 0 && (draft.cardioVisible || isCardioOnly)) {
+    document.getElementById('section-cardio').style.display = 'block';
+    if (!isCardioOnly) document.getElementById('btn-add-cardio').style.display = 'none';
     draft.cardioEntries.forEach(entry => {
       const id = cardioEntryCount++;
       const div = document.createElement('div');
@@ -365,32 +375,63 @@ function startWorkout(manual, cardioOnly) {
   isManualEntry = manual;
   isCardioOnly = cardioOnly;
 
-  // Clear any existing draft when starting fresh
   clearDraft();
 
   document.getElementById('today-idle').style.display = 'none';
   document.getElementById('today-planning').style.display = 'block';
   document.getElementById('today-summary').style.display = 'none';
 
-  // Show/hide warmup and exercises based on mode
-  document.getElementById('section-warmup').style.display = cardioOnly ? 'none' : 'block';
-  document.getElementById('section-exercises').style.display = cardioOnly ? 'none' : 'block';
-
-  // Update cardio card title
-  document.getElementById('cardio-card-title').textContent = cardioOnly ? '🏃 Cardio' : '🏃 Cardio';
-
   const dateCard = document.getElementById('manual-date-card');
   dateCard.style.display = manual ? 'block' : 'none';
   if (manual) document.getElementById('manual-date').value = new Date().toISOString().split('T')[0];
 
-  if (!cardioOnly) {
+  if (cardioOnly) {
+    // Cardio only — hide exercises and add buttons, show cardio directly
+    document.getElementById('section-exercises').style.display = 'none';
+    document.getElementById('section-warmup').style.display = 'none';
+    document.getElementById('section-add-buttons').style.display = 'none';
+    document.getElementById('section-cardio').style.display = 'block';
+    document.getElementById('cardio-remove-btn').style.display = 'none'; // can't remove in cardio-only mode
+    renderCardioEntriesList();
+  } else {
+    // Regular workout — exercises shown, warmup + cardio optional
+    document.getElementById('section-exercises').style.display = 'block';
+    document.getElementById('section-warmup').style.display = 'none';
+    document.getElementById('section-cardio').style.display = 'none';
+    document.getElementById('section-add-buttons').style.display = 'flex';
+    document.getElementById('btn-add-warmup').style.display = '';
+    document.getElementById('btn-add-cardio').style.display = '';
+
     document.getElementById('warmup-select').innerHTML = state.warmupTypes.map((t, i) => `<option value="${i}">${t.name}</option>`).join('');
     document.getElementById('day-select').innerHTML = state.days.map((d, i) => `<option value="${i}">${d.name}</option>`).join('');
-    renderWarmupFields();
     loadDayExercises();
   }
+}
 
+function addWarmup() {
+  document.getElementById('section-warmup').style.display = 'block';
+  document.getElementById('btn-add-warmup').style.display = 'none';
+  document.getElementById('warmup-select').innerHTML = state.warmupTypes.map((t, i) => `<option value="${i}">${t.name}</option>`).join('');
+  renderWarmupFields();
+}
+
+function removeWarmup() {
+  document.getElementById('section-warmup').style.display = 'none';
+  document.getElementById('btn-add-warmup').style.display = '';
+  document.getElementById('warmup-time').value = '';
+}
+
+function addCardio() {
+  document.getElementById('section-cardio').style.display = 'block';
+  document.getElementById('btn-add-cardio').style.display = 'none';
   renderCardioEntriesList();
+}
+
+function removeCardio() {
+  document.getElementById('section-cardio').style.display = 'none';
+  document.getElementById('btn-add-cardio').style.display = '';
+  document.getElementById('cardio-entries-list').innerHTML = '';
+  cardioEntryCount = 0;
 }
 
 function renderWarmupFields() {
@@ -440,7 +481,9 @@ function loadDayExercises() {
 }
 
 function buildSummary() {
-  const cardioEntries = collectCardioEntries();
+  const warmupVisible = document.getElementById('section-warmup').style.display !== 'none';
+  const cardioVisible = document.getElementById('section-cardio').style.display !== 'none';
+  const cardioEntries = cardioVisible ? collectCardioEntries() : [];
 
   let displayDate = isManualEntry
     ? (document.getElementById('manual-date').value
@@ -453,22 +496,22 @@ function buildSummary() {
   if (isCardioOnly) {
     html += `<div class="summary-row"><div><div class="summary-label">Type</div><div class="summary-value">🏃 Cardio only</div></div></div>`;
   } else {
-    const warmupIdx = parseInt(document.getElementById('warmup-select').value);
-    const warmupType = state.warmupTypes[warmupIdx];
-    const warmupTime = document.getElementById('warmup-time').value;
-    const warmupFields = collectDynamicFields('warmup', warmupType);
-    let warmupDetail = warmupType.name;
-    if (warmupTime) warmupDetail += ` · ${warmupTime} min`;
-    const warmupExtras = Object.entries(warmupFields).filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`).join(' · ');
-    if (warmupExtras) warmupDetail += ` · ${warmupExtras}`;
+    // Warmup (optional)
+    if (warmupVisible) {
+      const warmupIdx = parseInt(document.getElementById('warmup-select').value);
+      const warmupType = state.warmupTypes[warmupIdx];
+      const warmupTime = document.getElementById('warmup-time').value;
+      const warmupFields = collectDynamicFields('warmup', warmupType);
+      let warmupDetail = warmupType.name;
+      if (warmupTime) warmupDetail += ` · ${warmupTime} min`;
+      const warmupExtras = Object.entries(warmupFields).filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`).join(' · ');
+      if (warmupExtras) warmupDetail += ` · ${warmupExtras}`;
+      html += `<div class="summary-row"><div><div class="summary-label">Warmup</div><div class="summary-value">${warmupDetail}</div></div></div>`;
+    }
 
     const dayIndex = parseInt(document.getElementById('day-select').value);
     const day = state.days[dayIndex];
-
-    html += `
-      <div class="summary-row"><div><div class="summary-label">Warmup</div><div class="summary-value">${warmupDetail}</div></div></div>
-      <div class="summary-row"><div><div class="summary-label">Workout</div><div class="summary-value">${day ? day.name : '-'}</div></div></div>
-    `;
+    html += `<div class="summary-row"><div><div class="summary-label">Workout</div><div class="summary-value">${day ? day.name : '-'}</div></div></div>`;
 
     if (day) {
       day.exercises.forEach((ex, i) => {
@@ -487,7 +530,7 @@ function buildSummary() {
     }
   }
 
-  // Cardio entries
+  // Cardio entries (optional)
   cardioEntries.forEach((c, i) => {
     let cardioStr = c.name;
     if (c.time) cardioStr += ` · ${c.time} min`;
@@ -517,7 +560,9 @@ function toggleNote(index) {
 }
 
 async function saveWorkout() {
-  const cardioEntries = collectCardioEntries();
+  const warmupVisible = document.getElementById('section-warmup').style.display !== 'none';
+  const cardioVisible = document.getElementById('section-cardio').style.display !== 'none';
+  const cardioEntries = cardioVisible ? collectCardioEntries() : [];
   const calories = document.getElementById('calories-input').value || '';
 
   const workoutDate = isManualEntry
@@ -529,10 +574,6 @@ async function saveWorkout() {
   if (!isCardioOnly) {
     const dayIndex = parseInt(document.getElementById('day-select').value);
     const day = state.days[dayIndex];
-    const warmupIdx = parseInt(document.getElementById('warmup-select').value);
-    const warmupType = state.warmupTypes[warmupIdx];
-    const warmupTime = document.getElementById('warmup-time').value;
-    const warmupFields = collectDynamicFields('warmup', warmupType);
 
     const exercises = day.exercises.map((ex, i) => {
       const noteDiv = document.getElementById('note-text-' + i);
@@ -550,14 +591,23 @@ async function saveWorkout() {
       if (state.days[dayIndex].exercises[i]) state.days[dayIndex].exercises[i].lastNote = ex.note || '';
     });
 
-    workout = { ...workout, dayName: day.name, warmup: warmupType.name, warmupTime, warmupFields, exercises };
+    workout = { ...workout, dayName: day.name, exercises };
+
+    // Only include warmup if it was added
+    if (warmupVisible) {
+      const warmupIdx = parseInt(document.getElementById('warmup-select').value);
+      const warmupType = state.warmupTypes[warmupIdx];
+      const warmupTime = document.getElementById('warmup-time').value;
+      const warmupFields = collectDynamicFields('warmup', warmupType);
+      workout = { ...workout, warmup: warmupType.name, warmupTime, warmupFields };
+    }
   }
 
   state.history.unshift(workout);
   state.history.sort((a, b) => new Date(b.date) - new Date(a.date));
   await saveState();
 
-  clearDraft(); // draft is done
+  clearDraft();
   resetToIdle();
   isManualEntry = false;
   isCardioOnly = false;
@@ -1206,3 +1256,7 @@ window.saveHistoryEdit = saveHistoryEdit;
 window.renderAdvancedStats = renderAdvancedStats;
 window.resumeDraft = resumeDraft;
 window.discardDraft = discardDraft;
+window.addWarmup = addWarmup;
+window.removeWarmup = removeWarmup;
+window.addCardio = addCardio;
+window.removeCardio = removeCardio;

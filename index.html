@@ -55,16 +55,6 @@
           <input type="date" id="manual-date" />
         </div>
 
-        <!-- Warmup (hidden in cardio only mode) -->
-        <div class="card" id="section-warmup">
-          <div class="card-title">🔥 Warmup</div>
-          <label class="field-label">Type</label>
-          <select id="warmup-select" onchange="renderWarmupFields()"></select>
-          <div id="warmup-fields"></div>
-          <label class="field-label">Time (minutes)</label>
-          <input type="number" id="warmup-time" placeholder="e.g. 10" min="1" max="120" />
-        </div>
-
         <!-- Exercises (hidden in cardio only mode) -->
         <div class="card" id="section-exercises">
           <div class="card-title">💪 Workout</div>
@@ -73,11 +63,33 @@
           <div id="exercise-log-list"></div>
         </div>
 
-        <!-- Cardio (always shown, label changes) -->
-        <div class="card">
-          <div class="card-title" id="cardio-card-title">🏃 Cardio</div>
+        <!-- Warmup (optional, hidden by default) -->
+        <div class="card" id="section-warmup" style="display:none;">
+          <div class="card-title" style="display:flex; justify-content:space-between; align-items:center;">
+            <span>🔥 Warmup</span>
+            <button class="btn-danger" onclick="removeWarmup()" style="font-size:14px; padding:2px 8px;">✕ Remove</button>
+          </div>
+          <label class="field-label">Type</label>
+          <select id="warmup-select" onchange="renderWarmupFields()"></select>
+          <div id="warmup-fields"></div>
+          <label class="field-label">Time (minutes)</label>
+          <input type="number" id="warmup-time" placeholder="e.g. 10" min="1" max="120" />
+        </div>
+
+        <!-- Cardio (optional, hidden by default in regular mode) -->
+        <div class="card" id="section-cardio" style="display:none;">
+          <div class="card-title" id="cardio-card-title" style="display:flex; justify-content:space-between; align-items:center;">
+            <span>🏃 Cardio</span>
+            <button class="btn-danger" id="cardio-remove-btn" onclick="removeCardio()" style="font-size:14px; padding:2px 8px;">✕ Remove</button>
+          </div>
           <div id="cardio-entries-list"></div>
           <button class="btn-outline full-width" onclick="addCardioEntry()" style="margin-top:8px;">+ Add cardio</button>
+        </div>
+
+        <!-- Add optional section buttons (hidden in cardio only mode) -->
+        <div id="section-add-buttons" style="display:flex; gap:8px; margin-bottom:1rem;">
+          <button class="btn-outline" id="btn-add-warmup" onclick="addWarmup()" style="flex:1;">🔥 Add warmup</button>
+          <button class="btn-outline" id="btn-add-cardio" onclick="addCardio()" style="flex:1;">🏃 Add cardio</button>
         </div>
 
         <button class="btn-primary full-width" onclick="showSummary()" style="margin-bottom:1rem;">Start now ▶</button>
