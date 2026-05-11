@@ -62,6 +62,7 @@ onAuthChange(async (user) => {
     data.cardioTypes = normaliseTypes(data.cardioTypes);
     state = data;
     renderSetup();
+    renderContinueButton();
   } else {
     currentUser = null;
     state = { days: [], warmupTypes: [], cardioTypes: [], history: [] };
