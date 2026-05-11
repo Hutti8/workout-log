@@ -76,6 +76,7 @@ function resetToIdle() {
   document.getElementById('today-idle').style.display = 'block';
   document.getElementById('today-planning').style.display = 'none';
   document.getElementById('today-summary').style.display = 'none';
+  renderContinueButton();
 }
 
 // ---- NAVIGATION ----
@@ -176,10 +177,186 @@ function collectCardioEntries() {
   return entries;
 }
 
+// ---- DRAFT (localStorage) ----
+const DRAFT_KEY = 'workout-log-draft';
+
+function saveDraft() {
+  if (!currentUser) return;
+  try {
+    const draft = {
+      uid: currentUser.uid,
+      isManualEntry,
+      isCardioOnly,
+      savedAt: new Date().toISOString()
+    };
+
+    // Manual date
+    if (isManualEntry) {
+      draft.manualDate = document.getElementById('manual-date')?.value || '';
+    }
+
+    if (!isCardioOnly) {
+      // Warmup
+      const warmupIdx = parseInt(document.getElementById('warmup-select')?.value || '0');
+      draft.warmupIdx = warmupIdx;
+      draft.warmupTime = document.getElementById('warmup-time')?.value || '';
+      const warmupType = state.warmupTypes[warmupIdx];
+      draft.warmupFields = collectDynamicFields('warmup', warmupType);
+
+      // Day + exercises
+      const dayIndex = parseInt(document.getElementById('day-select')?.value || '0');
+      draft.dayIndex = dayIndex;
+      const day = state.days[dayIndex];
+      if (day) {
+        draft.exercises = day.exercises.map((ex, i) => ({
+          reps: document.getElementById('reps-' + i)?.value || '',
+          kg: document.getElementById('kg-' + i)?.value || ''
+        }));
+      }
+    }
+
+    // Cardio entries
+    draft.cardioEntries = collectCardioEntries();
+
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+  } catch (e) { /* localStorage unavailable */ }
+}
+
+function loadDraft() {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    if (!raw) return null;
+    const draft = JSON.parse(raw);
+    if (!currentUser || draft.uid !== currentUser.uid) return null;
+    return draft;
+  } catch (e) { return null; }
+}
+
+function clearDraft() {
+  try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
+}
+
+function renderContinueButton() {
+  const draft = loadDraft();
+  const container = document.getElementById('continue-draft-area');
+  if (!container) return;
+  if (!draft) { container.innerHTML = ''; return; }
+  const label = draft.isCardioOnly ? '🏃 Continue cardio' : '💪 Continue workout';
+  const d = new Date(draft.savedAt);
+  const timeStr = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  const dateStr = d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+  container.innerHTML = `
+    <div class="draft-banner">
+      <div class="draft-info">Draft from ${dateStr} ${timeStr}</div>
+      <div style="display:flex; gap:8px; margin-top:8px;">
+        <button class="btn-primary" style="flex:1;" onclick="resumeDraft()">${label}</button>
+        <button class="btn-outline" style="padding:10px 14px;" onclick="discardDraft()">✕</button>
+      </div>
+    </div>`;
+}
+
+function resumeDraft() {
+  const draft = loadDraft();
+  if (!draft) return;
+
+  isManualEntry = draft.isManualEntry;
+  isCardioOnly = draft.isCardioOnly;
+
+  document.getElementById('today-idle').style.display = 'none';
+  document.getElementById('today-planning').style.display = 'block';
+  document.getElementById('today-summary').style.display = 'none';
+
+  document.getElementById('section-warmup').style.display = isCardioOnly ? 'none' : 'block';
+  document.getElementById('section-exercises').style.display = isCardioOnly ? 'none' : 'block';
+
+  const dateCard = document.getElementById('manual-date-card');
+  dateCard.style.display = isManualEntry ? 'block' : 'none';
+  if (isManualEntry && draft.manualDate) document.getElementById('manual-date').value = draft.manualDate;
+
+  if (!isCardioOnly) {
+    document.getElementById('warmup-select').innerHTML = state.warmupTypes.map((t, i) => `<option value="${i}">${t.name}</option>`).join('');
+    if (draft.warmupIdx !== undefined) document.getElementById('warmup-select').value = draft.warmupIdx;
+    renderWarmupFields();
+    if (draft.warmupTime) document.getElementById('warmup-time').value = draft.warmupTime;
+
+    // Restore warmup dynamic fields
+    if (draft.warmupFields) {
+      const warmupType = state.warmupTypes[draft.warmupIdx || 0];
+      if (warmupType && warmupType.fields) {
+        warmupType.fields.forEach(f => {
+          const el = document.getElementById(`field-warmup-${f.toLowerCase().replace(/\s/g,'_')}`);
+          if (el && draft.warmupFields[f]) el.value = draft.warmupFields[f];
+        });
+      }
+    }
+
+    document.getElementById('day-select').innerHTML = state.days.map((d, i) => `<option value="${i}">${d.name}</option>`).join('');
+    if (draft.dayIndex !== undefined) document.getElementById('day-select').value = draft.dayIndex;
+    loadDayExercises();
+
+    // Restore reps/kg
+    if (draft.exercises) {
+      draft.exercises.forEach((ex, i) => {
+        const repsEl = document.getElementById('reps-' + i);
+        const kgEl = document.getElementById('kg-' + i);
+        if (repsEl && ex.reps) repsEl.value = ex.reps;
+        if (kgEl && ex.kg) kgEl.value = ex.kg;
+      });
+    }
+  }
+
+  // Restore cardio entries
+  const container = document.getElementById('cardio-entries-list');
+  container.innerHTML = '';
+  cardioEntryCount = 0;
+  if (draft.cardioEntries && draft.cardioEntries.length > 0) {
+    draft.cardioEntries.forEach(entry => {
+      const id = cardioEntryCount++;
+      const div = document.createElement('div');
+      div.className = 'cardio-entry';
+      div.id = `cardio-entry-${id}`;
+      const typeIndex = state.cardioTypes.findIndex(t => t.name === entry.name);
+      const selectOptions = state.cardioTypes.map((t, i) => `<option value="${i}" ${i === typeIndex ? 'selected' : ''}>${t.name}</option>`).join('');
+      div.innerHTML = `
+        <div class="cardio-entry-header">
+          <span class="cardio-entry-num">Cardio ${id + 1}</span>
+          ${id > 0 ? `<button class="btn-danger" onclick="removeCardioEntry(${id})">🗑</button>` : ''}
+        </div>
+        <select id="cardio-type-${id}" onchange="updateCardioEntryFields(${id})">${selectOptions}</select>
+        <div id="cardio-dynamic-${id}"></div>
+        <label class="field-label">Time (minutes)</label>
+        <input type="number" id="cardio-time-${id}" placeholder="e.g. 30" min="1" max="300" value="${entry.time || ''}" />
+      `;
+      container.appendChild(div);
+      updateCardioEntryFields(id);
+      // Restore dynamic fields
+      if (entry.fields) {
+        const typeObj = state.cardioTypes[typeIndex >= 0 ? typeIndex : 0];
+        if (typeObj && typeObj.fields) {
+          typeObj.fields.forEach(f => {
+            const el = document.getElementById(`field-cardio-entry-${id}-${f.toLowerCase().replace(/\s/g,'_')}`);
+            if (el && entry.fields[f]) el.value = entry.fields[f];
+          });
+        }
+      }
+    });
+  } else {
+    addCardioEntry();
+  }
+}
+
+function discardDraft() {
+  clearDraft();
+  renderContinueButton();
+}
+
 // ---- TODAY PAGE ----
 function startWorkout(manual, cardioOnly) {
   isManualEntry = manual;
   isCardioOnly = cardioOnly;
+
+  // Clear any existing draft when starting fresh
+  clearDraft();
 
   document.getElementById('today-idle').style.display = 'none';
   document.getElementById('today-planning').style.display = 'block';
@@ -219,6 +396,7 @@ function startManualWorkout(cardioOnly) {
 }
 
 function showSummary() {
+  saveDraft(); // save progress before showing summary
   document.getElementById('today-planning').style.display = 'none';
   document.getElementById('today-summary').style.display = 'block';
   document.getElementById('calories-input').value = '';
@@ -369,6 +547,7 @@ async function saveWorkout() {
   state.history.sort((a, b) => new Date(b.date) - new Date(a.date));
   await saveState();
 
+  clearDraft(); // draft is done
   resetToIdle();
   isManualEntry = false;
   isCardioOnly = false;
@@ -1015,3 +1194,5 @@ window.openHistoryEdit = openHistoryEdit;
 window.closeHistoryEdit = closeHistoryEdit;
 window.saveHistoryEdit = saveHistoryEdit;
 window.renderAdvancedStats = renderAdvancedStats;
+window.resumeDraft = resumeDraft;
+window.discardDraft = discardDraft;

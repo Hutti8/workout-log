@@ -92,6 +92,18 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 
 .hedit-cardio-row { background: var(--bg-input); border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin-bottom: 8px; }
 
+/* DRAFT BANNER */
+.draft-banner {
+  background: var(--bg-card);
+  border: 1px solid #1a3a6e;
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+.draft-info {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
 .full-width { width: 100%; }
 
 /* ---- CARDIO ENTRY ROWS ---- */
