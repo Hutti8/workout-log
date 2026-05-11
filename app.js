@@ -62,7 +62,6 @@ onAuthChange(async (user) => {
     data.cardioTypes = normaliseTypes(data.cardioTypes);
     state = data;
     renderSetup();
-    renderContinueButton();
   } else {
     currentUser = null;
     state = { days: [], warmupTypes: [], cardioTypes: [], history: [] };
@@ -264,7 +263,7 @@ function resumeDraft() {
   isCardioOnly = draft.isCardioOnly;
 
   document.getElementById('today-idle').style.display = 'none';
-  document.getElementById('today-planning').style.display = 'block';
+  document.getElementById('today-planning').style.display = 'none';
   document.getElementById('today-summary').style.display = 'none';
 
   document.getElementById('section-warmup').style.display = isCardioOnly ? 'none' : 'block';
@@ -278,9 +277,9 @@ function resumeDraft() {
     document.getElementById('warmup-select').innerHTML = state.warmupTypes.map((t, i) => `<option value="${i}">${t.name}</option>`).join('');
     if (draft.warmupIdx !== undefined) document.getElementById('warmup-select').value = draft.warmupIdx;
     renderWarmupFields();
-    if (draft.warmupTime) document.getElementById('warmup-time').value = draft.warmupTime;
 
-    // Restore warmup dynamic fields
+    // Restore warmup time + dynamic fields AFTER renderWarmupFields has built them
+    if (draft.warmupTime) document.getElementById('warmup-time').value = draft.warmupTime;
     if (draft.warmupFields) {
       const warmupType = state.warmupTypes[draft.warmupIdx || 0];
       if (warmupType && warmupType.fields) {
@@ -330,7 +329,7 @@ function resumeDraft() {
       `;
       container.appendChild(div);
       updateCardioEntryFields(id);
-      // Restore dynamic fields
+      // Restore dynamic fields after they've been built
       if (entry.fields) {
         const typeObj = state.cardioTypes[typeIndex >= 0 ? typeIndex : 0];
         if (typeObj && typeObj.fields) {
@@ -344,6 +343,13 @@ function resumeDraft() {
   } else {
     addCardioEntry();
   }
+
+  // Go straight to summary — that's where the user left off
+  document.getElementById('today-planning').style.display = 'block';
+  buildSummary();
+  document.getElementById('today-planning').style.display = 'none';
+  document.getElementById('today-summary').style.display = 'block';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function discardDraft() {
