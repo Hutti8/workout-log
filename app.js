@@ -287,7 +287,7 @@ function buildSummary() {
           <div class="summary-exercise-row">
             <div>
               <div style="font-size:14px; font-weight:500;">${ex.name}</div>
-              <div style="font-size:12px; color:#9a9a9f;">${reps} reps · ${kg} kg</div>
+              <div style="font-size:12px; color:#9a9a9f;">${ex.sets || '-'} sets · ${reps} reps · ${kg} kg</div>
               <div class="note-text" id="note-text-${i}"></div>
             </div>
             <button class="btn-note" id="note-btn-${i}" onclick="toggleNote(${i})">📝 Next time</button>
@@ -346,7 +346,7 @@ async function saveWorkout() {
     const exercises = day.exercises.map((ex, i) => {
       const noteDiv = document.getElementById('note-text-' + i);
       const note = noteDiv ? noteDiv.textContent.replace('→ ', '').trim() : '';
-      return { name: ex.name, reps: document.getElementById('reps-' + i)?.value || '', kg: document.getElementById('kg-' + i)?.value || '', note };
+      return { name: ex.name, sets: ex.sets || '', reps: document.getElementById('reps-' + i)?.value || '', kg: document.getElementById('kg-' + i)?.value || '', note };
     });
 
     exercises.forEach((ex, i) => {
