@@ -5,7 +5,7 @@
 import { registerUser, loginUser, logoutUser, onAuthChange, loadUserData, saveUserData } from './firebase.js';
 
 // ---- STATE ----
-let state = { days: [], warmupTypes: [], cardioTypes: [], history: [] };
+let state = { days: [], warmupTypes: [], cardioTypes: [], history: [], exercises: [] };
 let currentUser = null;
 let editingDayIndex = -1;
 let isManualEntry = false;
@@ -64,7 +64,7 @@ onAuthChange(async (user) => {
     renderSetup();
   } else {
     currentUser = null;
-    state = { days: [], warmupTypes: [], cardioTypes: [], history: [] };
+    state = { days: [], warmupTypes: [], cardioTypes: [], history: [], exercises: [] };
     document.getElementById('auth-screen').style.display = 'flex';
     document.getElementById('app').style.display = 'none';
     document.getElementById('bottom-nav').style.display = 'none';
@@ -616,9 +616,137 @@ async function saveWorkout() {
 
 // ---- SETUP ----
 function renderSetup() {
+  renderExerciseLibrary();
   renderDaysList();
   renderWarmupTypesList();
   renderCardioTypesList();
+}
+
+// ---- EXERCISE LIBRARY ----
+let editingExerciseIndex = -1;
+
+function renderExerciseLibrary() {
+  const container = document.getElementById('exercise-library-list');
+  if (!container) return;
+  if (!state.exercises || state.exercises.length === 0) {
+    container.innerHTML = '<p class="empty-state">No exercises yet. Add some to build your library.</p>';
+    return;
+  }
+  container.innerHTML = state.exercises.map((ex, i) => `
+    <div class="setup-item">
+      <div>
+        <div class="setup-item-name">${ex.name}</div>
+        <div class="setup-item-meta">${ex.sets || '-'} sets · ${ex.reps || '-'} reps · ${ex.kg || '-'} kg</div>
+      </div>
+      <div class="setup-item-actions">
+        <button class="btn-outline" style="padding:6px 12px; font-size:13px;" onclick="openExerciseEditor(${i})">Edit</button>
+        <button class="btn-danger" onclick="deleteExercise(${i})">🗑</button>
+      </div>
+    </div>`).join('');
+}
+
+function openExerciseEditor(index) {
+  editingExerciseIndex = index;
+  if (index === -1) {
+    document.getElementById('exercise-editor-title').textContent = 'New exercise';
+    document.getElementById('ex-editor-name').value = '';
+    document.getElementById('ex-editor-sets').value = '';
+    document.getElementById('ex-editor-reps').value = '';
+    document.getElementById('ex-editor-kg').value = '';
+  } else {
+    const ex = state.exercises[index];
+    document.getElementById('exercise-editor-title').textContent = 'Edit ' + ex.name;
+    document.getElementById('ex-editor-name').value = ex.name;
+    document.getElementById('ex-editor-sets').value = ex.sets || '';
+    document.getElementById('ex-editor-reps').value = ex.reps || '';
+    document.getElementById('ex-editor-kg').value = ex.kg || '';
+  }
+  document.getElementById('exercise-editor-overlay').style.display = 'flex';
+}
+
+function closeExerciseEditor() {
+  document.getElementById('exercise-editor-overlay').style.display = 'none';
+}
+
+async function saveExerciseEditor() {
+  const name = document.getElementById('ex-editor-name').value.trim();
+  if (!name) return alert('Please enter a name.');
+  const sets = parseInt(document.getElementById('ex-editor-sets').value) || 3;
+  const reps = parseInt(document.getElementById('ex-editor-reps').value) || 0;
+  const kg = parseFloat(document.getElementById('ex-editor-kg').value) || 0;
+  if (!state.exercises) state.exercises = [];
+  if (editingExerciseIndex === -1) {
+    state.exercises.push({ name, sets, reps, kg });
+  } else {
+    state.exercises[editingExerciseIndex] = { name, sets, reps, kg };
+  }
+  await saveState();
+  closeExerciseEditor();
+  renderExerciseLibrary();
+}
+
+async function deleteExercise(i) {
+  if (!confirm('Delete this exercise from the library?')) return;
+  state.exercises.splice(i, 1);
+  await saveState();
+  renderExerciseLibrary();
+}
+
+// ---- LIBRARY PICKER ----
+function openLibraryPicker() {
+  if (!state.exercises || state.exercises.length === 0) {
+    alert('Your exercise library is empty. Add some exercises first.');
+    return;
+  }
+  // Get names already in the modal
+  const existingNames = [...document.querySelectorAll('#modal-exercise-list .modal-exercise-row input:first-child')]
+    .map(i => i.value.trim().toLowerCase());
+
+  const list = document.getElementById('library-picker-list');
+  list.innerHTML = state.exercises.map((ex, i) => {
+    const alreadyAdded = existingNames.includes(ex.name.toLowerCase());
+    return `
+      <label class="library-picker-row ${alreadyAdded ? 'already-added' : ''}">
+        <input type="checkbox" value="${i}" ${alreadyAdded ? 'checked' : ''} />
+        <div>
+          <div class="setup-item-name">${ex.name}</div>
+          <div class="setup-item-meta">${ex.sets || '-'} sets · ${ex.reps || '-'} reps · ${ex.kg || '-'} kg</div>
+        </div>
+      </label>`;
+  }).join('');
+  document.getElementById('library-picker-overlay').style.display = 'flex';
+}
+
+function closeLibraryPicker() {
+  document.getElementById('library-picker-overlay').style.display = 'none';
+}
+
+function confirmLibraryPick() {
+  const checked = [...document.querySelectorAll('#library-picker-list input[type="checkbox"]:checked')];
+  const existingNames = [...document.querySelectorAll('#modal-exercise-list .modal-exercise-row input:first-child')]
+    .map(i => i.value.trim().toLowerCase());
+
+  checked.forEach(cb => {
+    const ex = state.exercises[parseInt(cb.value)];
+    if (!ex) return;
+    // Don't add duplicates
+    if (existingNames.includes(ex.name.toLowerCase())) return;
+    existingNames.push(ex.name.toLowerCase());
+
+    const row = document.createElement('div');
+    row.className = 'modal-exercise-row';
+    row.innerHTML = `
+      <input type="text" value="${ex.name}" placeholder="Exercise name" />
+      <input type="number" value="${ex.sets || ''}" placeholder="-" min="1" max="99" />
+      <input type="number" value="${ex.reps || ''}" placeholder="-" min="0" max="99" />
+      <input type="number" value="${ex.kg || ''}" placeholder="-" min="0" max="999" step="0.5" />
+      <button class="btn-danger" onclick="this.parentElement.remove()">🗑</button>
+    `;
+    attachNameExpand(row.querySelector('input:first-child'));
+    document.getElementById('modal-exercise-list').appendChild(row);
+  });
+
+  closeLibraryPicker();
 }
 
 function renderDaysList() {
@@ -1256,6 +1384,13 @@ window.saveHistoryEdit = saveHistoryEdit;
 window.renderAdvancedStats = renderAdvancedStats;
 window.resumeDraft = resumeDraft;
 window.discardDraft = discardDraft;
+window.openExerciseEditor = openExerciseEditor;
+window.closeExerciseEditor = closeExerciseEditor;
+window.saveExerciseEditor = saveExerciseEditor;
+window.deleteExercise = deleteExercise;
+window.openLibraryPicker = openLibraryPicker;
+window.closeLibraryPicker = closeLibraryPicker;
+window.confirmLibraryPick = confirmLibraryPick;
 window.addWarmup = addWarmup;
 window.removeWarmup = removeWarmup;
 window.addCardio = addCardio;

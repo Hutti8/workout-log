@@ -104,6 +104,24 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
   color: var(--text-secondary);
 }
 
+/* LIBRARY PICKER */
+.library-picker-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 4px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+.library-picker-row:last-child { border-bottom: none; }
+.library-picker-row input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  accent-color: #7eb8f7;
+}
+.library-picker-row.already-added { opacity: 0.5; }
+
 .full-width { width: 100%; }
 
 /* ---- CARDIO ENTRY ROWS ---- */

@@ -55,14 +55,6 @@
           <input type="date" id="manual-date" />
         </div>
 
-        <!-- Exercises (hidden in cardio only mode) -->
-        <div class="card" id="section-exercises">
-          <div class="card-title">💪 Workout</div>
-          <label class="field-label">Day</label>
-          <select id="day-select" onchange="loadDayExercises()"></select>
-          <div id="exercise-log-list"></div>
-        </div>
-
         <!-- Warmup (optional, hidden by default) -->
         <div class="card" id="section-warmup" style="display:none;">
           <div class="card-title" style="display:flex; justify-content:space-between; align-items:center;">
@@ -74,6 +66,14 @@
           <div id="warmup-fields"></div>
           <label class="field-label">Time (minutes)</label>
           <input type="number" id="warmup-time" placeholder="e.g. 10" min="1" max="120" />
+        </div>
+
+        <!-- Exercises (hidden in cardio only mode) -->
+        <div class="card" id="section-exercises">
+          <div class="card-title">💪 Workout</div>
+          <label class="field-label">Day</label>
+          <select id="day-select" onchange="loadDayExercises()"></select>
+          <div id="exercise-log-list"></div>
         </div>
 
         <!-- Cardio (optional, hidden by default in regular mode) -->
@@ -114,6 +114,12 @@
 
     <!-- PAGE: SETUP -->
     <section id="page-setup" class="page">
+
+      <div class="card">
+        <div class="card-title">💪 Exercise library</div>
+        <div id="exercise-library-list"></div>
+        <button class="btn-outline full-width" style="margin-top:10px;" onclick="openExerciseEditor(-1)">+ Add exercise</button>
+      </div>
 
       <div class="card">
         <div class="card-title">📅 Workout days</div>
@@ -182,10 +188,46 @@
           <span></span>
         </div>
         <div id="modal-exercise-list"></div>
-        <button class="btn-outline full-width" onclick="addExerciseToModal()">+ Add exercise</button>
+        <div style="display:flex; gap:8px; margin-top:10px;">
+          <button class="btn-outline" style="flex:1;" onclick="addExerciseToModal()">+ Add blank</button>
+          <button class="btn-outline" style="flex:1;" onclick="openLibraryPicker()">📚 From library</button>
+        </div>
         <div style="display:flex; gap:8px; margin-top:1rem;">
           <button class="btn-primary" style="flex:1;" onclick="saveDay()">Save</button>
           <button class="btn-outline" style="flex:1;" onclick="closeDayEditor()">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- EXERCISE EDITOR MODAL -->
+    <div id="exercise-editor-overlay" class="overlay" style="display:none;">
+      <div class="modal">
+        <div class="modal-title" id="exercise-editor-title">New exercise</div>
+        <label class="field-label">Name</label>
+        <input type="text" id="ex-editor-name" placeholder="e.g. Bench press" />
+        <div class="modal-exercise-header" style="margin-top:1rem;">
+          <span>Sets</span><span>Reps</span><span>KG</span><span></span><span></span>
+        </div>
+        <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:8px; margin-top:4px;">
+          <input type="number" id="ex-editor-sets" placeholder="Sets" min="1" max="99" />
+          <input type="number" id="ex-editor-reps" placeholder="Reps" min="0" max="99" />
+          <input type="number" id="ex-editor-kg" placeholder="KG" min="0" max="999" step="0.5" />
+        </div>
+        <div style="display:flex; gap:8px; margin-top:1rem;">
+          <button class="btn-primary" style="flex:1;" onclick="saveExerciseEditor()">Save</button>
+          <button class="btn-outline" style="flex:1;" onclick="closeExerciseEditor()">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- LIBRARY PICKER MODAL -->
+    <div id="library-picker-overlay" class="overlay" style="display:none;">
+      <div class="modal">
+        <div class="modal-title">📚 Add from library</div>
+        <div id="library-picker-list"></div>
+        <div style="display:flex; gap:8px; margin-top:1rem;">
+          <button class="btn-primary" style="flex:1;" onclick="confirmLibraryPick()">Add selected</button>
+          <button class="btn-outline" style="flex:1;" onclick="closeLibraryPicker()">Cancel</button>
         </div>
       </div>
     </div>
