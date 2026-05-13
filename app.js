@@ -413,6 +413,7 @@ function addWarmup() {
   document.getElementById('btn-add-warmup').style.display = 'none';
   document.getElementById('warmup-select').innerHTML = state.warmupTypes.map((t, i) => `<option value="${i}">${t.name}</option>`).join('');
   renderWarmupFields();
+  document.getElementById('section-warmup').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function removeWarmup() {
