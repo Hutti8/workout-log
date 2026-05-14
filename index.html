@@ -143,34 +143,38 @@
 
     <!-- PAGE: HISTORY -->
     <section id="page-history" class="page">
-      <div id="history-layout">
 
-        <!-- Left: existing history -->
-        <div id="history-left">
-          <button class="btn-outline full-width" onclick="startManualWorkout(false)" style="margin-bottom:0.5rem;">+ Add workout manually</button>
-          <button class="btn-outline full-width" onclick="startManualWorkout(true)" style="margin-bottom:1rem;">+ Add cardio manually</button>
-          <div id="history-stats"></div>
-          <div id="history-list"></div>
-        </div>
-
-        <!-- Right: advanced PC stats panel (hidden on mobile) -->
-        <div id="history-right">
-          <div class="card">
-            <div class="card-title">📅 Workout frequency</div>
-            <canvas id="chart-frequency"></canvas>
-          </div>
-          <div class="card">
-            <div class="card-title">🔥 Calories over time</div>
-            <canvas id="chart-calories"></canvas>
-          </div>
-          <div class="card">
-            <div class="card-title">📈 Volume over time (total kg)</div>
-            <canvas id="chart-volume"></canvas>
-          </div>
-          <div id="exercise-charts"></div>
-        </div>
-
+      <!-- Tab toggle -->
+      <div class="history-tabs">
+        <button class="history-tab active" id="tab-btn-history" onclick="switchHistoryTab('history')">📋 History</button>
+        <button class="history-tab" id="tab-btn-stats" onclick="switchHistoryTab('stats')">📊 Stats</button>
       </div>
+
+      <!-- Tab: History -->
+      <div id="history-tab-history">
+        <button class="btn-outline full-width" onclick="startManualWorkout(false)" style="margin-bottom:0.5rem;">+ Add workout manually</button>
+        <button class="btn-outline full-width" onclick="startManualWorkout(true)" style="margin-bottom:1rem;">+ Add cardio manually</button>
+        <div id="history-stats"></div>
+        <div id="history-list"></div>
+      </div>
+
+      <!-- Tab: Stats -->
+      <div id="history-tab-stats" style="display:none;">
+        <div class="card">
+          <div class="card-title">📅 Workout frequency</div>
+          <canvas id="chart-frequency"></canvas>
+        </div>
+        <div class="card">
+          <div class="card-title">🔥 Calories over time</div>
+          <canvas id="chart-calories"></canvas>
+        </div>
+        <div class="card">
+          <div class="card-title">📈 Volume over time (total kg)</div>
+          <canvas id="chart-volume"></canvas>
+        </div>
+        <div id="exercise-charts"></div>
+      </div>
+
     </section>
 
     <!-- DAY EDITOR MODAL -->

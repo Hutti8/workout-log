@@ -259,39 +259,42 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 .nav-label { font-size: 11px; font-weight: 500; }
 
 /* ============================================================
-   PC HISTORY LAYOUT — only activates on wide screens
+   HISTORY TABS
    ============================================================ */
 
-#history-layout {
+.history-tabs {
   display: flex;
-  gap: 1.5rem;
-  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 1rem;
 }
 
-#history-left {
+.history-tab {
   flex: 1;
-  min-width: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  border-radius: 10px;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
 }
 
-#history-right {
-  display: none; /* hidden on mobile */
-  width: 420px;
-  flex-shrink: 0;
-  position: sticky;
-  top: 70px;
-  max-height: calc(100vh - 90px);
-  overflow-y: auto;
-  padding-right: 4px;
+.history-tab.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #7eb8f7;
 }
 
-/* Scrollbar styling for the right panel */
-#history-right::-webkit-scrollbar { width: 4px; }
-#history-right::-webkit-scrollbar-track { background: transparent; }
-#history-right::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+.history-tab:hover:not(.active) {
+  border-color: #7eb8f7;
+  color: #7eb8f7;
+}
 
 /* Chart canvas sizing */
-#history-right canvas {
-  max-height: 180px;
+#history-tab-stats canvas {
+  max-height: 200px;
 }
 
 /* No-data message inside chart cards */
@@ -304,17 +307,8 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 
 @media (min-width: 900px) {
   #app {
-    max-width: 1200px;
+    max-width: 700px;
     padding-left: 1rem;
     padding-right: 1rem;
-  }
-
-  /* On PC the history page gets the two-column layout */
-  #page-history {
-    padding: 1rem 0;
-  }
-
-  #history-right {
-    display: block;
   }
 }

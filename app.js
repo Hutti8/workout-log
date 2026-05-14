@@ -190,7 +190,6 @@ function saveDraft() {
       savedAt: new Date().toISOString()
     };
 
-    // Manual date
     if (isManualEntry) {
       draft.manualDate = document.getElementById('manual-date')?.value || '';
     }
@@ -199,14 +198,12 @@ function saveDraft() {
     draft.cardioVisible = document.getElementById('section-cardio').style.display !== 'none';
 
     if (!isCardioOnly) {
-      // Warmup
       const warmupIdx = parseInt(document.getElementById('warmup-select')?.value || '0');
       draft.warmupIdx = warmupIdx;
       draft.warmupTime = document.getElementById('warmup-time')?.value || '';
       const warmupType = state.warmupTypes[warmupIdx];
       draft.warmupFields = collectDynamicFields('warmup', warmupType);
 
-      // Day + exercises
       const dayIndex = parseInt(document.getElementById('day-select')?.value || '0');
       draft.dayIndex = dayIndex;
       const day = state.days[dayIndex];
@@ -218,9 +215,7 @@ function saveDraft() {
       }
     }
 
-    // Cardio entries
     draft.cardioEntries = collectCardioEntries();
-
     localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
   } catch (e) { /* localStorage unavailable */ }
 }
@@ -277,7 +272,6 @@ function resumeDraft() {
   if (isManualEntry && draft.manualDate) document.getElementById('manual-date').value = draft.manualDate;
 
   if (!isCardioOnly) {
-    // Restore warmup if it was visible
     if (draft.warmupVisible) {
       document.getElementById('warmup-select').innerHTML = state.warmupTypes.map((t, i) => `<option value="${i}">${t.name}</option>`).join('');
       if (draft.warmupIdx !== undefined) document.getElementById('warmup-select').value = draft.warmupIdx;
@@ -313,7 +307,6 @@ function resumeDraft() {
     }
   }
 
-  // Restore cardio entries
   const container = document.getElementById('cardio-entries-list');
   container.innerHTML = '';
   cardioEntryCount = 0;
@@ -339,7 +332,6 @@ function resumeDraft() {
       `;
       container.appendChild(div);
       updateCardioEntryFields(id);
-      // Restore dynamic fields after they've been built
       if (entry.fields) {
         const typeObj = state.cardioTypes[typeIndex >= 0 ? typeIndex : 0];
         if (typeObj && typeObj.fields) {
@@ -354,9 +346,7 @@ function resumeDraft() {
     addCardioEntry();
   }
 
-  // Go straight to summary — show planning momentarily so DOM inputs are readable
   document.getElementById('today-planning').style.display = 'block';
-  // Use setTimeout to let the browser render the inputs before buildSummary reads them
   setTimeout(() => {
     buildSummary();
     document.getElementById('today-planning').style.display = 'none';
@@ -386,15 +376,13 @@ function startWorkout(manual, cardioOnly) {
   if (manual) document.getElementById('manual-date').value = new Date().toISOString().split('T')[0];
 
   if (cardioOnly) {
-    // Cardio only — hide exercises and add buttons, show cardio directly
     document.getElementById('section-exercises').style.display = 'none';
     document.getElementById('section-warmup').style.display = 'none';
     document.getElementById('section-add-buttons').style.display = 'none';
     document.getElementById('section-cardio').style.display = 'block';
-    document.getElementById('cardio-remove-btn').style.display = 'none'; // can't remove in cardio-only mode
+    document.getElementById('cardio-remove-btn').style.display = 'none';
     renderCardioEntriesList();
   } else {
-    // Regular workout — exercises shown, warmup + cardio optional
     document.getElementById('section-exercises').style.display = 'block';
     document.getElementById('section-warmup').style.display = 'none';
     document.getElementById('section-cardio').style.display = 'none';
@@ -448,7 +436,7 @@ function startManualWorkout(cardioOnly) {
 }
 
 function showSummary() {
-  saveDraft(); // save progress before showing summary
+  saveDraft();
   document.getElementById('today-planning').style.display = 'none';
   document.getElementById('today-summary').style.display = 'block';
   document.getElementById('calories-input').value = '';
@@ -497,7 +485,6 @@ function buildSummary() {
   if (isCardioOnly) {
     html += `<div class="summary-row"><div><div class="summary-label">Type</div><div class="summary-value">🏃 Cardio only</div></div></div>`;
   } else {
-    // Warmup (optional)
     if (warmupVisible) {
       const warmupIdx = parseInt(document.getElementById('warmup-select').value);
       const warmupType = state.warmupTypes[warmupIdx];
@@ -531,7 +518,6 @@ function buildSummary() {
     }
   }
 
-  // Cardio entries (optional)
   cardioEntries.forEach((c, i) => {
     let cardioStr = c.name;
     if (c.time) cardioStr += ` · ${c.time} min`;
@@ -594,7 +580,6 @@ async function saveWorkout() {
 
     workout = { ...workout, dayName: day.name, exercises };
 
-    // Only include warmup if it was added
     if (warmupVisible) {
       const warmupIdx = parseInt(document.getElementById('warmup-select').value);
       const warmupType = state.warmupTypes[warmupIdx];
@@ -699,7 +684,6 @@ function openLibraryPicker() {
     alert('Your exercise library is empty. Add some exercises first.');
     return;
   }
-  // Get names already in the modal
   const existingNames = [...document.querySelectorAll('#modal-exercise-list .modal-exercise-row input:first-child')]
     .map(i => i.value.trim().toLowerCase());
 
@@ -730,7 +714,6 @@ function confirmLibraryPick() {
   checked.forEach(cb => {
     const ex = state.exercises[parseInt(cb.value)];
     if (!ex) return;
-    // Don't add duplicates
     if (existingNames.includes(ex.name.toLowerCase())) return;
     existingNames.push(ex.name.toLowerCase());
 
@@ -750,6 +733,7 @@ function confirmLibraryPick() {
   closeLibraryPicker();
 }
 
+// ---- DAYS LIST ----
 function renderDaysList() {
   const container = document.getElementById('days-list');
   if (!container) return;
@@ -955,7 +939,7 @@ function renderStats() {
   container.innerHTML = html;
 }
 
-// ---- ADVANCED PC STATS ----
+// ---- ADVANCED STATS ----
 function destroyChart(id) {
   if (chartInstances[id]) {
     chartInstances[id].destroy();
@@ -983,21 +967,17 @@ function makeChartOptions(yLabel) {
 }
 
 function renderAdvancedStats() {
-  // Only run on PC
-  if (window.innerWidth < 900) return;
-
-  const rightPanel = document.getElementById('history-right');
-  if (!rightPanel) return;
+  const statsTab = document.getElementById('history-tab-stats');
+  if (!statsTab) return;
 
   if (!state.history || state.history.length === 0) {
-    rightPanel.innerHTML = '<div class="card"><div class="card-title">📊 Advanced stats</div><p class="chart-empty">No workout data yet.</p></div>';
+    statsTab.innerHTML = '<div class="card"><div class="card-title">📊 Stats</div><p class="chart-empty">No workout data yet.</p></div>';
     return;
   }
 
-  // Sort oldest first for chronological charts
   const sorted = [...state.history].sort((a, b) => new Date(a.date) - new Date(b.date));
 
-  // ---- 1. WORKOUT FREQUENCY (bar chart — workouts per month) ----
+  // ---- 1. WORKOUT FREQUENCY ----
   const freqMap = {};
   sorted.forEach(w => {
     const d = new Date(w.date);
@@ -1026,7 +1006,7 @@ function renderAdvancedStats() {
     });
   }
 
-  // ---- 2. CALORIES OVER TIME (line chart) ----
+  // ---- 2. CALORIES OVER TIME ----
   const calWorkouts = sorted.filter(w => w.calories && !isNaN(parseFloat(w.calories)));
   const calLabels = calWorkouts.map(w => new Date(w.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }));
   const calData = calWorkouts.map(w => parseFloat(w.calories));
@@ -1034,6 +1014,8 @@ function renderAdvancedStats() {
   destroyChart('calories');
   const calCanvas = document.getElementById('chart-calories');
   if (calCanvas) {
+    const existingEmpty = calCanvas.nextElementSibling;
+    if (existingEmpty && existingEmpty.classList.contains('chart-empty')) existingEmpty.remove();
     if (calData.length === 0) {
       calCanvas.style.display = 'none';
       calCanvas.insertAdjacentHTML('afterend', '<p class="chart-empty">No calorie data yet.</p>');
@@ -1058,7 +1040,7 @@ function renderAdvancedStats() {
     }
   }
 
-  // ---- 3. VOLUME OVER TIME (total kg lifted per session) ----
+  // ---- 3. VOLUME OVER TIME ----
   const volWorkouts = sorted.filter(w => w.exercises && w.exercises.length > 0);
   const volLabels = volWorkouts.map(w => new Date(w.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }));
   const volData = volWorkouts.map(w =>
@@ -1068,6 +1050,8 @@ function renderAdvancedStats() {
   destroyChart('volume');
   const volCanvas = document.getElementById('chart-volume');
   if (volCanvas) {
+    const existingEmpty = volCanvas.nextElementSibling;
+    if (existingEmpty && existingEmpty.classList.contains('chart-empty')) existingEmpty.remove();
     if (volData.length === 0) {
       volCanvas.style.display = 'none';
       volCanvas.insertAdjacentHTML('afterend', '<p class="chart-empty">No lifting data yet.</p>');
@@ -1092,7 +1076,7 @@ function renderAdvancedStats() {
     }
   }
 
-  // ---- 4. PER-EXERCISE KG PROGRESS (one line chart per exercise) ----
+  // ---- 4. PER-EXERCISE KG PROGRESS ----
   const exMap = {};
   sorted.forEach(w => {
     if (!w.exercises) return;
@@ -1109,14 +1093,13 @@ function renderAdvancedStats() {
 
   const exContainer = document.getElementById('exercise-charts');
   if (exContainer) {
-    // Destroy old per-exercise charts
     Object.keys(chartInstances).forEach(k => {
       if (k.startsWith('ex-')) destroyChart(k);
     });
     exContainer.innerHTML = '';
 
     Object.entries(exMap).forEach(([name, { labels, data }]) => {
-      if (data.length < 2) return; // need at least 2 data points for a useful chart
+      if (data.length < 2) return;
 
       const safeId = 'ex-' + name.replace(/[^a-zA-Z0-9]/g, '_');
       const card = document.createElement('div');
@@ -1149,13 +1132,25 @@ function renderAdvancedStats() {
   }
 }
 
+// ---- HISTORY TAB SWITCHER ----
+function switchHistoryTab(tab) {
+  document.getElementById('history-tab-history').style.display = tab === 'history' ? 'block' : 'none';
+  document.getElementById('history-tab-stats').style.display = tab === 'stats' ? 'block' : 'none';
+  document.getElementById('tab-btn-history').classList.toggle('active', tab === 'history');
+  document.getElementById('tab-btn-stats').classList.toggle('active', tab === 'stats');
+  if (tab === 'stats') renderAdvancedStats();
+}
+
+// ---- RENDER HISTORY ----
 function renderHistory() {
   renderStats();
-  renderAdvancedStats();
 
   const container = document.getElementById('history-list');
   if (!container) return;
-  if (state.history.length === 0) { container.innerHTML = '<p class="empty-state">No workouts saved yet.<br>Complete your first session!</p>'; return; }
+  if (state.history.length === 0) {
+    container.innerHTML = '<p class="empty-state">No workouts saved yet.<br>Complete your first session!</p>';
+    return;
+  }
 
   container.innerHTML = state.history.map((w, i) => {
     const date = new Date(w.date).toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
@@ -1165,15 +1160,13 @@ function renderHistory() {
     if (w.cardioOnly) {
       body += `<div class="cardio-only-badge">🏃 Cardio only</div>`;
     } else {
-      // Warmup
       let warmupStr = (w.warmup || '') + (w.warmupTime ? ` · ${w.warmupTime} min` : '');
       if (w.warmupFields) {
         const extras = Object.entries(w.warmupFields).filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`).join(' · ');
         if (extras) warmupStr += ` · ${extras}`;
       }
-      body += `<div class="history-meta">🔥 ${warmupStr}</div>`;
+      if (w.warmup) body += `<div class="history-meta">🔥 ${warmupStr}</div>`;
       body += `<div class="history-day-name">${w.dayName || ''}</div>`;
-      // Exercises — now includes sets
       if (w.exercises) {
         body += w.exercises.map(ex => `
           <div class="history-exercise">
@@ -1184,7 +1177,6 @@ function renderHistory() {
       }
     }
 
-    // Cardio entries (new format)
     if (w.cardioEntries && w.cardioEntries.length > 0) {
       w.cardioEntries.forEach((c) => {
         let cardioStr = c.name + (c.time ? ` · ${c.time} min` : '');
@@ -1195,7 +1187,6 @@ function renderHistory() {
         body += `<div class="history-meta">🏃 ${cardioStr}</div>`;
       });
     } else if (w.cardio) {
-      // Backwards compat with old single cardio format
       let cardioStr = w.cardio + (w.cardioTime ? ` · ${w.cardioTime} min` : '');
       if (w.cardioFields) {
         const extras = Object.entries(w.cardioFields).filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`).join(' · ');
@@ -1227,14 +1218,10 @@ function openHistoryEdit(index) {
   editingHistoryIndex = index;
   const w = state.history[index];
 
-  // Date
   const d = new Date(w.date);
   document.getElementById('hedit-date').value = d.toISOString().split('T')[0];
-
-  // Calories
   document.getElementById('hedit-calories').value = w.calories || '';
 
-  // Exercises
   const exSection = document.getElementById('hedit-exercises-section');
   const exList = document.getElementById('hedit-exercise-list');
   if (w.exercises && w.exercises.length > 0) {
@@ -1247,15 +1234,12 @@ function openHistoryEdit(index) {
         <input type="number" value="${ex.kg || ''}" placeholder="-" min="0" max="999" step="0.5" />
         <span></span>
       </div>`).join('');
-
-    // Notes — one per line
     document.getElementById('hedit-notes').value = w.exercises.map(ex => ex.note || '').join('\n');
   } else {
     exSection.style.display = 'none';
     document.getElementById('hedit-notes').value = '';
   }
 
-  // Cardio entries
   const cardioSection = document.getElementById('hedit-cardio-section');
   const cardioList = document.getElementById('hedit-cardio-list');
   const entries = w.cardioEntries || (w.cardio ? [{ name: w.cardio, time: w.cardioTime || '', fields: w.cardioFields || {} }] : []);
@@ -1288,14 +1272,10 @@ async function saveHistoryEdit() {
   if (editingHistoryIndex === -1) return;
   const w = state.history[editingHistoryIndex];
 
-  // Date
   const dateVal = document.getElementById('hedit-date').value;
   if (dateVal) w.date = new Date(dateVal + 'T12:00:00').toISOString();
-
-  // Calories
   w.calories = document.getElementById('hedit-calories').value || '';
 
-  // Exercises
   if (w.exercises && w.exercises.length > 0) {
     const notes = document.getElementById('hedit-notes').value.split('\n');
     w.exercises = w.exercises.map((ex, i) => {
@@ -1312,7 +1292,6 @@ async function saveHistoryEdit() {
     });
   }
 
-  // Cardio entries
   const entries = w.cardioEntries || (w.cardio ? [{ name: w.cardio, time: w.cardioTime || '', fields: w.cardioFields || {} }] : []);
   if (entries.length > 0) {
     w.cardioEntries = entries.map((c, i) => {
@@ -1321,7 +1300,6 @@ async function saveHistoryEdit() {
       const inputs = row.querySelectorAll('input');
       const name = inputs[0].value.trim() || c.name;
       const time = inputs[1].value || c.time;
-      // Parse fields from "Key: val, Key2: val2" format
       const fieldsRaw = inputs[2].value;
       const fields = {};
       fieldsRaw.split(',').forEach(part => {
@@ -1330,13 +1308,11 @@ async function saveHistoryEdit() {
       });
       return { name, time, fields };
     });
-    // Clean up old single-cardio fields
     delete w.cardio;
     delete w.cardioTime;
     delete w.cardioFields;
   }
 
-  // Re-sort history by date
   state.history.sort((a, b) => new Date(b.date) - new Date(a.date));
   await saveState();
   closeHistoryEdit();
@@ -1396,3 +1372,4 @@ window.addWarmup = addWarmup;
 window.removeWarmup = removeWarmup;
 window.addCardio = addCardio;
 window.removeCardio = removeCardio;
+window.switchHistoryTab = switchHistoryTab;
