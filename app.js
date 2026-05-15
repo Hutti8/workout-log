@@ -439,11 +439,11 @@ function loadDayExercises() {
     renderAddExerciseLogBtn();
     return;
   }
-  let html = `<div class="exercise-log-header" style="margin-top:12px;"><span>Exercise</span><span>Reps</span><span>KG</span><span></span></div>`;
+  let html = `<div class="exercise-log-header" style="margin-top:12px;"><span>Exercise</span><span>Sets</span><span>Reps</span><span>KG</span><span></span></div>`;
   day.exercises.forEach((ex, i) => {
-    html += `
-      <div class="exercise-log-row" id="log-row-${i}">
+    html += `<div class="exercise-log-row" id="log-row-${i}">
         <div class="exercise-log-name" title="${ex.name}">${ex.name}</div>
+        <div class="exercise-log-sets">${ex.sets || '-'}</div>
         <input type="number" id="reps-${i}" value="${ex.reps || ''}" placeholder="0" min="0" max="99" />
         <input type="number" id="kg-${i}" value="${ex.kg || ''}" placeholder="0" min="0" max="999" step="0.5" />
         <button class="btn-danger" onclick="removeLogExercise(this)" style="padding:6px 8px; font-size:13px;">🗑</button>

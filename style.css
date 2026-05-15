@@ -191,6 +191,7 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 .exercise-log-header { display: grid; grid-template-columns: 1fr auto auto auto; gap: 8px; font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
 .exercise-log-header span { font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; text-align: center; }
 .exercise-log-header span:first-child { text-align: left; }
+.exercise-log-sets { text-align: center; color: var(--text-secondary); font-size: 14px; }
 
 /* SUMMARY */
 .summary-row { display: flex; justify-content: space-between; align-items: flex-start; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
