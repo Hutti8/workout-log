@@ -134,7 +134,6 @@ function addCardioEntry() {
   const div = document.createElement('div');
   div.className = 'cardio-entry';
   div.id = `cardio-entry-${id}`;
-
   const selectOptions = state.cardioTypes.map((t, i) => `<option value="${i}">${t.name}</option>`).join('');
   div.innerHTML = `
     <div class="cardio-entry-header">
@@ -189,21 +188,17 @@ function saveDraft() {
       isCardioOnly,
       savedAt: new Date().toISOString()
     };
-
     if (isManualEntry) {
       draft.manualDate = document.getElementById('manual-date')?.value || '';
     }
-
     draft.warmupVisible = document.getElementById('section-warmup').style.display !== 'none';
     draft.cardioVisible = document.getElementById('section-cardio').style.display !== 'none';
-
     if (!isCardioOnly) {
       const warmupIdx = parseInt(document.getElementById('warmup-select')?.value || '0');
       draft.warmupIdx = warmupIdx;
       draft.warmupTime = document.getElementById('warmup-time')?.value || '';
       const warmupType = state.warmupTypes[warmupIdx];
       draft.warmupFields = collectDynamicFields('warmup', warmupType);
-
       const dayIndex = parseInt(document.getElementById('day-select')?.value || '0');
       draft.dayIndex = dayIndex;
       const day = state.days[dayIndex];
@@ -214,10 +209,9 @@ function saveDraft() {
         }));
       }
     }
-
     draft.cardioEntries = collectCardioEntries();
     localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
-  } catch (e) { /* localStorage unavailable */ }
+  } catch (e) {}
 }
 
 function loadDraft() {
@@ -256,21 +250,16 @@ function renderContinueButton() {
 function resumeDraft() {
   const draft = loadDraft();
   if (!draft) return;
-
   isManualEntry = draft.isManualEntry;
   isCardioOnly = draft.isCardioOnly;
-
   document.getElementById('today-idle').style.display = 'none';
   document.getElementById('today-planning').style.display = 'none';
   document.getElementById('today-summary').style.display = 'none';
-
   document.getElementById('section-warmup').style.display = isCardioOnly ? 'none' : 'block';
   document.getElementById('section-exercises').style.display = isCardioOnly ? 'none' : 'block';
-
   const dateCard = document.getElementById('manual-date-card');
   dateCard.style.display = isManualEntry ? 'block' : 'none';
   if (isManualEntry && draft.manualDate) document.getElementById('manual-date').value = draft.manualDate;
-
   if (!isCardioOnly) {
     if (draft.warmupVisible) {
       document.getElementById('warmup-select').innerHTML = state.warmupTypes.map((t, i) => `<option value="${i}">${t.name}</option>`).join('');
@@ -292,11 +281,9 @@ function resumeDraft() {
       document.getElementById('section-warmup').style.display = 'none';
       document.getElementById('btn-add-warmup').style.display = '';
     }
-
     document.getElementById('day-select').innerHTML = state.days.map((d, i) => `<option value="${i}">${d.name}</option>`).join('');
     if (draft.dayIndex !== undefined) document.getElementById('day-select').value = draft.dayIndex;
     loadDayExercises();
-
     if (draft.exercises) {
       draft.exercises.forEach((ex, i) => {
         const repsEl = document.getElementById('reps-' + i);
@@ -306,7 +293,6 @@ function resumeDraft() {
       });
     }
   }
-
   const container = document.getElementById('cardio-entries-list');
   container.innerHTML = '';
   cardioEntryCount = 0;
@@ -345,7 +331,6 @@ function resumeDraft() {
   } else {
     addCardioEntry();
   }
-
   document.getElementById('today-planning').style.display = 'block';
   setTimeout(() => {
     buildSummary();
@@ -364,17 +349,13 @@ function discardDraft() {
 function startWorkout(manual, cardioOnly) {
   isManualEntry = manual;
   isCardioOnly = cardioOnly;
-
   clearDraft();
-
   document.getElementById('today-idle').style.display = 'none';
   document.getElementById('today-planning').style.display = 'block';
   document.getElementById('today-summary').style.display = 'none';
-
   const dateCard = document.getElementById('manual-date-card');
   dateCard.style.display = manual ? 'block' : 'none';
   if (manual) document.getElementById('manual-date').value = new Date().toISOString().split('T')[0];
-
   if (cardioOnly) {
     document.getElementById('section-exercises').style.display = 'none';
     document.getElementById('section-warmup').style.display = 'none';
@@ -389,7 +370,6 @@ function startWorkout(manual, cardioOnly) {
     document.getElementById('section-add-buttons').style.display = 'flex';
     document.getElementById('btn-add-warmup').style.display = '';
     document.getElementById('btn-add-cardio').style.display = '';
-
     document.getElementById('warmup-select').innerHTML = state.warmupTypes.map((t, i) => `<option value="${i}">${t.name}</option>`).join('');
     document.getElementById('day-select').innerHTML = state.days.map((d, i) => `<option value="${i}">${d.name}</option>`).join('');
     loadDayExercises();
@@ -449,26 +429,60 @@ function backToPlanning() {
   document.getElementById('today-planning').style.display = 'block';
 }
 
+// ---- LOAD DAY EXERCISES (with add/delete) ----
 function loadDayExercises() {
   const dayIndex = parseInt(document.getElementById('day-select').value);
   const day = state.days[dayIndex];
   const container = document.getElementById('exercise-log-list');
   if (!day || day.exercises.length === 0) {
     container.innerHTML = '<p style="color:#9a9a9f; font-size:14px; margin-top:8px;">No exercises defined. Go to Setup to add some.</p>';
+    renderAddExerciseLogBtn();
     return;
   }
-  let html = `<div class="exercise-log-header" style="margin-top:12px;"><span>Exercise</span><span>Reps</span><span>KG</span></div>`;
+  let html = `<div class="exercise-log-header" style="margin-top:12px;"><span>Exercise</span><span>Reps</span><span>KG</span><span></span></div>`;
   day.exercises.forEach((ex, i) => {
     html += `
-      <div class="exercise-log-row">
+      <div class="exercise-log-row" id="log-row-${i}">
         <div class="exercise-log-name" title="${ex.name}">${ex.name}</div>
         <input type="number" id="reps-${i}" value="${ex.reps || ''}" placeholder="0" min="0" max="99" />
         <input type="number" id="kg-${i}" value="${ex.kg || ''}" placeholder="0" min="0" max="999" step="0.5" />
+        <button class="btn-danger" onclick="removeLogExercise(this)" style="padding:6px 8px; font-size:13px;">🗑</button>
       </div>`;
   });
   container.innerHTML = html;
+  renderAddExerciseLogBtn();
 }
 
+function renderAddExerciseLogBtn() {
+  const container = document.getElementById('exercise-log-list');
+  const btn = document.createElement('button');
+  btn.className = 'btn-outline full-width';
+  btn.style.marginTop = '8px';
+  btn.textContent = '+ Add exercise';
+  btn.onclick = addLogExercise;
+  container.appendChild(btn);
+}
+
+function removeLogExercise(btn) {
+  btn.closest('.exercise-log-row').remove();
+}
+
+function addLogExercise() {
+  const container = document.getElementById('exercise-log-list');
+  const addBtn = container.querySelector('.btn-outline');
+  const i = container.querySelectorAll('.exercise-log-row').length;
+  const row = document.createElement('div');
+  row.className = 'exercise-log-row';
+  row.innerHTML = `
+    <input type="text" id="exname-${i}" placeholder="Exercise name" style="font-size:13px;" />
+    <input type="number" id="reps-${i}" placeholder="0" min="0" max="99" />
+    <input type="number" id="kg-${i}" placeholder="0" min="0" max="999" step="0.5" />
+    <button class="btn-danger" onclick="removeLogExercise(this)" style="padding:6px 8px; font-size:13px;">🗑</button>
+  `;
+  container.insertBefore(row, addBtn);
+}
+
+// ---- BUILD SUMMARY ----
 function buildSummary() {
   const warmupVisible = document.getElementById('section-warmup').style.display !== 'none';
   const cardioVisible = document.getElementById('section-cardio').style.display !== 'none';
@@ -501,21 +515,27 @@ function buildSummary() {
     const day = state.days[dayIndex];
     html += `<div class="summary-row"><div><div class="summary-label">Workout</div><div class="summary-value">${day ? day.name : '-'}</div></div></div>`;
 
-    if (day) {
-      day.exercises.forEach((ex, i) => {
-        const reps = document.getElementById('reps-' + i)?.value || '-';
-        const kg = document.getElementById('kg-' + i)?.value || '-';
+    const logRows = document.querySelectorAll('#exercise-log-list .exercise-log-row');
+    logRows.forEach((row, i) => {
+      const nameEl = row.querySelector('.exercise-log-name') || row.querySelector('input[type="text"]');
+      const name = nameEl ? (nameEl.textContent || nameEl.value || '').trim() : '';
+      const repsEl = row.querySelector(`#reps-${i}`);
+      const kgEl = row.querySelector(`#kg-${i}`);
+      const reps = repsEl?.value || '-';
+      const kg = kgEl?.value || '-';
+      const sets = day?.exercises[i]?.sets || '-';
+      if (name) {
         html += `
           <div class="summary-exercise-row">
             <div>
-              <div style="font-size:14px; font-weight:500;">${ex.name}</div>
-              <div style="font-size:12px; color:#9a9a9f;">${ex.sets || '-'} sets · ${reps} reps · ${kg} kg</div>
+              <div style="font-size:14px; font-weight:500;">${name}</div>
+              <div style="font-size:12px; color:#9a9a9f;">${sets} sets · ${reps} reps · ${kg} kg</div>
               <div class="note-text" id="note-text-${i}"></div>
             </div>
             <button class="btn-note" id="note-btn-${i}" onclick="toggleNote(${i})">📝 Next time</button>
           </div>`;
-      });
-    }
+      }
+    });
   }
 
   cardioEntries.forEach((c, i) => {
@@ -546,6 +566,7 @@ function toggleNote(index) {
   }
 }
 
+// ---- SAVE WORKOUT ----
 async function saveWorkout() {
   const warmupVisible = document.getElementById('section-warmup').style.display !== 'none';
   const cardioVisible = document.getElementById('section-cardio').style.display !== 'none';
@@ -562,23 +583,26 @@ async function saveWorkout() {
     const dayIndex = parseInt(document.getElementById('day-select').value);
     const day = state.days[dayIndex];
 
-    const exercises = day.exercises.map((ex, i) => {
+    const logRows = document.querySelectorAll('#exercise-log-list .exercise-log-row');
+    const exercises = [];
+    logRows.forEach((row, i) => {
+      const nameEl = row.querySelector('.exercise-log-name') || row.querySelector('input[type="text"]');
+      const name = nameEl ? (nameEl.textContent || nameEl.value || '').trim() : '';
+      const repsEl = row.querySelector(`#reps-${i}`);
+      const kgEl = row.querySelector(`#kg-${i}`);
       const noteDiv = document.getElementById('note-text-' + i);
       const note = noteDiv ? noteDiv.textContent.replace('→ ', '').trim() : '';
-      return {
-        name: ex.name,
-        sets: ex.sets || '',
-        reps: document.getElementById('reps-' + i)?.value || '',
-        kg: document.getElementById('kg-' + i)?.value || '',
-        note
-      };
+      const sets = day?.exercises[i]?.sets || '';
+      if (name) exercises.push({ name, sets, reps: repsEl?.value || '', kg: kgEl?.value || '', note });
     });
 
     exercises.forEach((ex, i) => {
-      if (state.days[dayIndex].exercises[i]) state.days[dayIndex].exercises[i].lastNote = ex.note || '';
+      if (day && state.days[dayIndex].exercises[i]) {
+        state.days[dayIndex].exercises[i].lastNote = ex.note || '';
+      }
     });
 
-    workout = { ...workout, dayName: day.name, exercises };
+    workout = { ...workout, dayName: day ? day.name : '', exercises };
 
     if (warmupVisible) {
       const warmupIdx = parseInt(document.getElementById('warmup-select').value);
@@ -592,7 +616,6 @@ async function saveWorkout() {
   state.history.unshift(workout);
   state.history.sort((a, b) => new Date(b.date) - new Date(a.date));
   await saveState();
-
   clearDraft();
   resetToIdle();
   isManualEntry = false;
@@ -686,7 +709,6 @@ function openLibraryPicker() {
   }
   const existingNames = [...document.querySelectorAll('#modal-exercise-list .modal-exercise-row input:first-child')]
     .map(i => i.value.trim().toLowerCase());
-
   const list = document.getElementById('library-picker-list');
   list.innerHTML = state.exercises.map((ex, i) => {
     const alreadyAdded = existingNames.includes(ex.name.toLowerCase());
@@ -710,13 +732,11 @@ function confirmLibraryPick() {
   const checked = [...document.querySelectorAll('#library-picker-list input[type="checkbox"]:checked')];
   const existingNames = [...document.querySelectorAll('#modal-exercise-list .modal-exercise-row input:first-child')]
     .map(i => i.value.trim().toLowerCase());
-
   checked.forEach(cb => {
     const ex = state.exercises[parseInt(cb.value)];
     if (!ex) return;
     if (existingNames.includes(ex.name.toLowerCase())) return;
     existingNames.push(ex.name.toLowerCase());
-
     const row = document.createElement('div');
     row.className = 'modal-exercise-row';
     row.innerHTML = `
@@ -729,7 +749,6 @@ function confirmLibraryPick() {
     attachNameExpand(row.querySelector('input:first-child'));
     document.getElementById('modal-exercise-list').appendChild(row);
   });
-
   closeLibraryPicker();
 }
 
@@ -800,7 +819,6 @@ function openTypeEditor(kind, index) {
   const title = document.getElementById('type-modal-title');
   const nameInput = document.getElementById('type-modal-name');
   const fieldsContainer = document.getElementById('type-modal-fields');
-
   if (index === -1) {
     title.textContent = `New ${kind} type`;
     nameInput.value = '';
@@ -846,7 +864,6 @@ function openDayEditor(index) {
   const title = document.getElementById('modal-title');
   const nameInput = document.getElementById('modal-day-name');
   const exList = document.getElementById('modal-exercise-list');
-
   if (index === -1) {
     title.textContent = 'New day';
     nameInput.value = '';
@@ -912,7 +929,7 @@ async function deleteDay(i) {
   renderDaysList();
 }
 
-// ---- HISTORY ----
+// ---- HISTORY STATS ----
 function renderStats() {
   const container = document.getElementById('history-stats');
   if (!container || state.history.length === 0) { if (container) container.innerHTML = ''; return; }
@@ -941,10 +958,7 @@ function renderStats() {
 
 // ---- ADVANCED STATS ----
 function destroyChart(id) {
-  if (chartInstances[id]) {
-    chartInstances[id].destroy();
-    delete chartInstances[id];
-  }
+  if (chartInstances[id]) { chartInstances[id].destroy(); delete chartInstances[id]; }
 }
 
 function makeChartOptions(yLabel) {
@@ -953,10 +967,7 @@ function makeChartOptions(yLabel) {
     maintainAspectRatio: true,
     plugins: { legend: { display: false } },
     scales: {
-      x: {
-        ticks: { color: '#9a9a9f', font: { size: 10 }, maxRotation: 45 },
-        grid: { color: '#3a3a42' }
-      },
+      x: { ticks: { color: '#9a9a9f', font: { size: 10 }, maxRotation: 45 }, grid: { color: '#3a3a42' } },
       y: {
         ticks: { color: '#9a9a9f', font: { size: 10 } },
         grid: { color: '#3a3a42' },
@@ -969,15 +980,13 @@ function makeChartOptions(yLabel) {
 function renderAdvancedStats() {
   const statsTab = document.getElementById('history-tab-stats');
   if (!statsTab) return;
-
   if (!state.history || state.history.length === 0) {
     statsTab.innerHTML = '<div class="card"><div class="card-title">📊 Stats</div><p class="chart-empty">No workout data yet.</p></div>';
     return;
   }
-
   const sorted = [...state.history].sort((a, b) => new Date(a.date) - new Date(b.date));
 
-  // ---- 1. WORKOUT FREQUENCY ----
+  // Frequency
   const freqMap = {};
   sorted.forEach(w => {
     const d = new Date(w.date);
@@ -985,98 +994,57 @@ function renderAdvancedStats() {
     freqMap[key] = (freqMap[key] || 0) + 1;
   });
   const freqLabels = Object.keys(freqMap);
-  const freqData = freqLabels.map(k => freqMap[k]);
-
   destroyChart('frequency');
   const freqCanvas = document.getElementById('chart-frequency');
   if (freqCanvas) {
     chartInstances['frequency'] = new Chart(freqCanvas, {
       type: 'bar',
-      data: {
-        labels: freqLabels,
-        datasets: [{
-          data: freqData,
-          backgroundColor: '#1a3a6e',
-          borderColor: '#7eb8f7',
-          borderWidth: 1,
-          borderRadius: 4
-        }]
-      },
+      data: { labels: freqLabels, datasets: [{ data: freqLabels.map(k => freqMap[k]), backgroundColor: '#1a3a6e', borderColor: '#7eb8f7', borderWidth: 1, borderRadius: 4 }] },
       options: makeChartOptions('sessions')
     });
   }
 
-  // ---- 2. CALORIES OVER TIME ----
+  // Calories
   const calWorkouts = sorted.filter(w => w.calories && !isNaN(parseFloat(w.calories)));
-  const calLabels = calWorkouts.map(w => new Date(w.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }));
-  const calData = calWorkouts.map(w => parseFloat(w.calories));
-
   destroyChart('calories');
   const calCanvas = document.getElementById('chart-calories');
   if (calCanvas) {
     const existingEmpty = calCanvas.nextElementSibling;
     if (existingEmpty && existingEmpty.classList.contains('chart-empty')) existingEmpty.remove();
-    if (calData.length === 0) {
+    if (calWorkouts.length === 0) {
       calCanvas.style.display = 'none';
       calCanvas.insertAdjacentHTML('afterend', '<p class="chart-empty">No calorie data yet.</p>');
     } else {
       calCanvas.style.display = '';
       chartInstances['calories'] = new Chart(calCanvas, {
         type: 'line',
-        data: {
-          labels: calLabels,
-          datasets: [{
-            data: calData,
-            borderColor: '#f0a500',
-            backgroundColor: 'rgba(240,165,0,0.1)',
-            tension: 0.3,
-            pointRadius: 4,
-            pointBackgroundColor: '#f0a500',
-            fill: true
-          }]
-        },
+        data: { labels: calWorkouts.map(w => new Date(w.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })), datasets: [{ data: calWorkouts.map(w => parseFloat(w.calories)), borderColor: '#f0a500', backgroundColor: 'rgba(240,165,0,0.1)', tension: 0.3, pointRadius: 4, pointBackgroundColor: '#f0a500', fill: true }] },
         options: makeChartOptions('kcal')
       });
     }
   }
 
-  // ---- 3. VOLUME OVER TIME ----
+  // Volume
   const volWorkouts = sorted.filter(w => w.exercises && w.exercises.length > 0);
-  const volLabels = volWorkouts.map(w => new Date(w.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }));
-  const volData = volWorkouts.map(w =>
-    w.exercises.reduce((sum, ex) => sum + ((parseFloat(ex.kg) || 0) * (parseInt(ex.reps) || 0)), 0)
-  );
-
   destroyChart('volume');
   const volCanvas = document.getElementById('chart-volume');
   if (volCanvas) {
     const existingEmpty = volCanvas.nextElementSibling;
     if (existingEmpty && existingEmpty.classList.contains('chart-empty')) existingEmpty.remove();
-    if (volData.length === 0) {
+    if (volWorkouts.length === 0) {
       volCanvas.style.display = 'none';
       volCanvas.insertAdjacentHTML('afterend', '<p class="chart-empty">No lifting data yet.</p>');
     } else {
       volCanvas.style.display = '';
       chartInstances['volume'] = new Chart(volCanvas, {
         type: 'line',
-        data: {
-          labels: volLabels,
-          datasets: [{
-            data: volData,
-            borderColor: '#7eb8f7',
-            backgroundColor: 'rgba(126,184,247,0.1)',
-            tension: 0.3,
-            pointRadius: 4,
-            pointBackgroundColor: '#7eb8f7',
-            fill: true
-          }]
-        },
+        data: { labels: volWorkouts.map(w => new Date(w.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })), datasets: [{ data: volWorkouts.map(w => w.exercises.reduce((sum, ex) => sum + ((parseFloat(ex.kg) || 0) * (parseInt(ex.reps) || 0)), 0)), borderColor: '#7eb8f7', backgroundColor: 'rgba(126,184,247,0.1)', tension: 0.3, pointRadius: 4, pointBackgroundColor: '#7eb8f7', fill: true }] },
         options: makeChartOptions('kg')
       });
     }
   }
 
-  // ---- 4. PER-EXERCISE KG PROGRESS ----
+  // Per-exercise
   const exMap = {};
   sorted.forEach(w => {
     if (!w.exercises) return;
@@ -1090,42 +1058,23 @@ function renderAdvancedStats() {
       exMap[ex.name].data.push(kg);
     });
   });
-
   const exContainer = document.getElementById('exercise-charts');
   if (exContainer) {
-    Object.keys(chartInstances).forEach(k => {
-      if (k.startsWith('ex-')) destroyChart(k);
-    });
+    Object.keys(chartInstances).forEach(k => { if (k.startsWith('ex-')) destroyChart(k); });
     exContainer.innerHTML = '';
-
     Object.entries(exMap).forEach(([name, { labels, data }]) => {
       if (data.length < 2) return;
-
       const safeId = 'ex-' + name.replace(/[^a-zA-Z0-9]/g, '_');
       const card = document.createElement('div');
       card.className = 'card';
       card.innerHTML = `<div class="card-title">💪 ${name}</div><canvas id="chart-${safeId}"></canvas>`;
       exContainer.appendChild(card);
-
-      const canvas = card.querySelector('canvas');
-      chartInstances[safeId] = new Chart(canvas, {
+      chartInstances[safeId] = new Chart(card.querySelector('canvas'), {
         type: 'line',
-        data: {
-          labels,
-          datasets: [{
-            data,
-            borderColor: '#7eb8f7',
-            backgroundColor: 'rgba(126,184,247,0.08)',
-            tension: 0.3,
-            pointRadius: 4,
-            pointBackgroundColor: '#7eb8f7',
-            fill: true
-          }]
-        },
+        data: { labels, datasets: [{ data, borderColor: '#7eb8f7', backgroundColor: 'rgba(126,184,247,0.08)', tension: 0.3, pointRadius: 4, pointBackgroundColor: '#7eb8f7', fill: true }] },
         options: makeChartOptions('kg')
       });
     });
-
     if (exContainer.innerHTML === '') {
       exContainer.innerHTML = '<div class="card"><div class="card-title">💪 Exercise progress</div><p class="chart-empty">Log at least 2 sessions with the same exercises to see progress charts.</p></div>';
     }
@@ -1144,19 +1093,15 @@ function switchHistoryTab(tab) {
 // ---- RENDER HISTORY ----
 function renderHistory() {
   renderStats();
-
   const container = document.getElementById('history-list');
   if (!container) return;
   if (state.history.length === 0) {
     container.innerHTML = '<p class="empty-state">No workouts saved yet.<br>Complete your first session!</p>';
     return;
   }
-
   container.innerHTML = state.history.map((w, i) => {
     const date = new Date(w.date).toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-
     let body = '';
-
     if (w.cardioOnly) {
       body += `<div class="cardio-only-badge">🏃 Cardio only</div>`;
     } else {
@@ -1176,7 +1121,6 @@ function renderHistory() {
           ${ex.note ? `<div class="history-note">→ ${ex.note}</div>` : ''}`).join('');
       }
     }
-
     if (w.cardioEntries && w.cardioEntries.length > 0) {
       w.cardioEntries.forEach((c) => {
         let cardioStr = c.name + (c.time ? ` · ${c.time} min` : '');
@@ -1194,9 +1138,7 @@ function renderHistory() {
       }
       body += `<div class="history-meta">🏃 ${cardioStr}</div>`;
     }
-
     if (w.calories) body += `<div class="history-calories">🔥 ${w.calories} kcal</div>`;
-
     return `
       <div class="history-card">
         <div class="history-card-header">
@@ -1217,26 +1159,25 @@ let editingHistoryIndex = -1;
 function openHistoryEdit(index) {
   editingHistoryIndex = index;
   const w = state.history[index];
-
   const d = new Date(w.date);
   document.getElementById('hedit-date').value = d.toISOString().split('T')[0];
   document.getElementById('hedit-calories').value = w.calories || '';
 
   const exSection = document.getElementById('hedit-exercises-section');
   const exList = document.getElementById('hedit-exercise-list');
+  exSection.style.display = 'block';
   if (w.exercises && w.exercises.length > 0) {
-    exSection.style.display = 'block';
     exList.innerHTML = w.exercises.map((ex, i) => `
       <div class="modal-exercise-row" id="hedit-ex-row-${i}">
         <input type="text" value="${ex.name || ''}" placeholder="Exercise" />
         <input type="number" value="${ex.sets || ''}" placeholder="-" min="1" max="99" />
         <input type="number" value="${ex.reps || ''}" placeholder="-" min="0" max="99" />
         <input type="number" value="${ex.kg || ''}" placeholder="-" min="0" max="999" step="0.5" />
-        <span></span>
+        <button class="btn-danger" onclick="this.closest('.modal-exercise-row').remove()" style="padding:4px 8px;">🗑</button>
       </div>`).join('');
     document.getElementById('hedit-notes').value = w.exercises.map(ex => ex.note || '').join('\n');
   } else {
-    exSection.style.display = 'none';
+    exList.innerHTML = '';
     document.getElementById('hedit-notes').value = '';
   }
 
@@ -1259,8 +1200,20 @@ function openHistoryEdit(index) {
   } else {
     cardioSection.style.display = 'none';
   }
-
   document.getElementById('history-edit-overlay').style.display = 'flex';
+}
+
+function addHeditExercise() {
+  const row = document.createElement('div');
+  row.className = 'modal-exercise-row';
+  row.innerHTML = `
+    <input type="text" placeholder="Exercise" />
+    <input type="number" placeholder="-" min="1" max="99" />
+    <input type="number" placeholder="-" min="0" max="99" />
+    <input type="number" placeholder="-" min="0" max="999" step="0.5" />
+    <button class="btn-danger" onclick="this.closest('.modal-exercise-row').remove()" style="padding:4px 8px;">🗑</button>
+  `;
+  document.getElementById('hedit-exercise-list').appendChild(row);
 }
 
 function closeHistoryEdit() {
@@ -1271,26 +1224,19 @@ function closeHistoryEdit() {
 async function saveHistoryEdit() {
   if (editingHistoryIndex === -1) return;
   const w = state.history[editingHistoryIndex];
-
   const dateVal = document.getElementById('hedit-date').value;
   if (dateVal) w.date = new Date(dateVal + 'T12:00:00').toISOString();
   w.calories = document.getElementById('hedit-calories').value || '';
 
-  if (w.exercises && w.exercises.length > 0) {
-    const notes = document.getElementById('hedit-notes').value.split('\n');
-    w.exercises = w.exercises.map((ex, i) => {
-      const row = document.getElementById(`hedit-ex-row-${i}`);
-      if (!row) return ex;
-      const inputs = row.querySelectorAll('input');
-      return {
-        name: inputs[0].value.trim() || ex.name,
-        sets: inputs[1].value || ex.sets,
-        reps: inputs[2].value || ex.reps,
-        kg: inputs[3].value || ex.kg,
-        note: (notes[i] || '').trim()
-      };
-    });
-  }
+  const allRows = document.querySelectorAll('#hedit-exercise-list .modal-exercise-row');
+  const notes = document.getElementById('hedit-notes').value.split('\n');
+  w.exercises = [];
+  allRows.forEach((row, i) => {
+    const inputs = row.querySelectorAll('input');
+    const name = inputs[0].value.trim();
+    if (!name) return;
+    w.exercises.push({ name, sets: inputs[1].value || '', reps: inputs[2].value || '', kg: inputs[3].value || '', note: (notes[i] || '').trim() });
+  });
 
   const entries = w.cardioEntries || (w.cardio ? [{ name: w.cardio, time: w.cardioTime || '', fields: w.cardioFields || {} }] : []);
   if (entries.length > 0) {
@@ -1300,17 +1246,14 @@ async function saveHistoryEdit() {
       const inputs = row.querySelectorAll('input');
       const name = inputs[0].value.trim() || c.name;
       const time = inputs[1].value || c.time;
-      const fieldsRaw = inputs[2].value;
       const fields = {};
-      fieldsRaw.split(',').forEach(part => {
+      inputs[2].value.split(',').forEach(part => {
         const [k, v] = part.split(':').map(s => s.trim());
         if (k && v) fields[k] = v;
       });
       return { name, time, fields };
     });
-    delete w.cardio;
-    delete w.cardioTime;
-    delete w.cardioFields;
+    delete w.cardio; delete w.cardioTime; delete w.cardioFields;
   }
 
   state.history.sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -1358,7 +1301,9 @@ window.deleteWorkout = deleteWorkout;
 window.openHistoryEdit = openHistoryEdit;
 window.closeHistoryEdit = closeHistoryEdit;
 window.saveHistoryEdit = saveHistoryEdit;
+window.addHeditExercise = addHeditExercise;
 window.renderAdvancedStats = renderAdvancedStats;
+window.switchHistoryTab = switchHistoryTab;
 window.resumeDraft = resumeDraft;
 window.discardDraft = discardDraft;
 window.openExerciseEditor = openExerciseEditor;
@@ -1372,4 +1317,5 @@ window.addWarmup = addWarmup;
 window.removeWarmup = removeWarmup;
 window.addCardio = addCardio;
 window.removeCardio = removeCardio;
-window.switchHistoryTab = switchHistoryTab;
+window.removeLogExercise = removeLogExercise;
+window.addLogExercise = addLogExercise;
