@@ -1,4 +1,4 @@
-const CACHE = 'workout-log-v22';
+const CACHE = 'workout-log-v23';
 const FILES = [
   '/workout-log/',
   '/workout-log/index.html',
