@@ -442,11 +442,11 @@ function loadDayExercises() {
   let html = `<div class="modal-exercise-header" style="margin-top:12px;"><span>Exercise</span><span>Sets</span><span>Reps</span><span>KG</span><span></span></div>`;
   day.exercises.forEach((ex, i) => {
     html += `<div class="modal-exercise-row" id="log-row-${i}">
-        <input type="text" value="${ex.name}" readonly style="background:transparent; border-color:transparent; color:var(--text-primary);" />
-        <input type="number" value="${ex.sets || ''}" readonly style="background:transparent; border-color:transparent; color:var(--text-secondary);" />
+        <input type="text" id="exname-${i}" value="${ex.name}" placeholder="Exercise name" />
+        <input type="number" id="sets-${i}" value="${ex.sets || ''}" placeholder="-" min="1" max="99" />
         <input type="number" id="reps-${i}" value="${ex.reps || ''}" placeholder="0" min="0" max="99" />
         <input type="number" id="kg-${i}" value="${ex.kg || ''}" placeholder="0" min="0" max="999" step="0.5" />
-        <button class="btn-danger" onclick="removeLogExercise(this)" style="padding:6px 8px; font-size:13px;">🗑</button>
+        <button class="btn-danger" onclick="removeLogExercise(this)" style="padding:6px 8px;">🗑</button>
       </div>`;
   });
   container.innerHTML = html;
@@ -470,14 +470,15 @@ function removeLogExercise(btn) {
 function addLogExercise() {
   const container = document.getElementById('exercise-log-list');
   const addBtn = container.querySelector('.btn-outline');
-  const i = container.querySelectorAll('.exercise-log-row').length;
+  const i = container.querySelectorAll('.modal-exercise-row').length;
   const row = document.createElement('div');
-  row.className = 'exercise-log-row';
+  row.className = 'modal-exercise-row';
   row.innerHTML = `
-    <input type="text" id="exname-${i}" placeholder="Exercise name" style="font-size:13px;" />
+    <input type="text" id="exname-${i}" placeholder="Exercise name" />
+    <input type="number" id="sets-${i}" placeholder="-" min="1" max="99" />
     <input type="number" id="reps-${i}" placeholder="0" min="0" max="99" />
     <input type="number" id="kg-${i}" placeholder="0" min="0" max="999" step="0.5" />
-    <button class="btn-danger" onclick="removeLogExercise(this)" style="padding:6px 8px; font-size:13px;">🗑</button>
+    <button class="btn-danger" onclick="removeLogExercise(this)" style="padding:6px 8px;">🗑</button>
   `;
   container.insertBefore(row, addBtn);
 }
@@ -516,26 +517,27 @@ function buildSummary() {
     html += `<div class="summary-row"><div><div class="summary-label">Workout</div><div class="summary-value">${day ? day.name : '-'}</div></div></div>`;
 
     const logRows = document.querySelectorAll('#exercise-log-list .exercise-log-row');
-    logRows.forEach((row, i) => {
-      const nameEl = row.querySelector('.exercise-log-name') || row.querySelector('input[type="text"]');
-      const name = nameEl ? (nameEl.textContent || nameEl.value || '').trim() : '';
-      const repsEl = row.querySelector(`#reps-${i}`);
-      const kgEl = row.querySelector(`#kg-${i}`);
-      const reps = repsEl?.value || '-';
-      const kg = kgEl?.value || '-';
-      const sets = day?.exercises[i]?.sets || '-';
-      if (name) {
-        html += `
-          <div class="summary-exercise-row">
-            <div>
-              <div style="font-size:14px; font-weight:500;">${name}</div>
-              <div style="font-size:12px; color:#9a9a9f;">${sets} sets · ${reps} reps · ${kg} kg</div>
-              <div class="note-text" id="note-text-${i}"></div>
-            </div>
-            <button class="btn-note" id="note-btn-${i}" onclick="toggleNote(${i})">📝 Next time</button>
-          </div>`;
-      }
-    });
+  logRows.forEach((row, i) => {
+    const nameEl = row.querySelector(`#exname-${i}`);
+    const name = nameEl ? nameEl.value.trim() : '';
+    const repsEl = row.querySelector(`#reps-${i}`);
+    const kgEl = row.querySelector(`#kg-${i}`);
+    const setsEl = row.querySelector(`#sets-${i}`);
+    const reps = repsEl?.value || '-';
+    const kg = kgEl?.value || '-';
+    const sets = setsEl?.value || '-';
+    if (name) {
+      html += `
+        <div class="summary-exercise-row">
+          <div>
+            <div style="font-size:14px; font-weight:500;">${name}</div>
+            <div style="font-size:12px; color:#9a9a9f;">${sets} sets · ${reps} reps · ${kg} kg</div>
+            <div class="note-text" id="note-text-${i}"></div>
+          </div>
+          <button class="btn-note" id="note-btn-${i}" onclick="toggleNote(${i})">📝 Next time</button>
+        </div>`;
+    }
+  });
   }
 
   cardioEntries.forEach((c, i) => {
@@ -585,16 +587,17 @@ async function saveWorkout() {
 
     const logRows = document.querySelectorAll('#exercise-log-list .exercise-log-row');
     const exercises = [];
-    logRows.forEach((row, i) => {
-      const nameEl = row.querySelector('.exercise-log-name') || row.querySelector('input[type="text"]');
-      const name = nameEl ? (nameEl.textContent || nameEl.value || '').trim() : '';
-      const repsEl = row.querySelector(`#reps-${i}`);
-      const kgEl = row.querySelector(`#kg-${i}`);
-      const noteDiv = document.getElementById('note-text-' + i);
-      const note = noteDiv ? noteDiv.textContent.replace('→ ', '').trim() : '';
-      const sets = day?.exercises[i]?.sets || '';
-      if (name) exercises.push({ name, sets, reps: repsEl?.value || '', kg: kgEl?.value || '', note });
-    });
+  logRows.forEach((row, i) => {
+    const nameEl = row.querySelector(`#exname-${i}`);
+    const name = nameEl ? nameEl.value.trim() : '';
+    const setsEl = row.querySelector(`#sets-${i}`);
+    const repsEl = row.querySelector(`#reps-${i}`);
+    const kgEl = row.querySelector(`#kg-${i}`);
+    const noteDiv = document.getElementById('note-text-' + i);
+    const note = noteDiv ? noteDiv.textContent.replace('→ ', '').trim() : '';
+    const sets = setsEl?.value || '';
+    if (name) exercises.push({ name, sets, reps: repsEl?.value || '', kg: kgEl?.value || '', note });
+  });
 
     exercises.forEach((ex, i) => {
       if (day && state.days[dayIndex].exercises[i]) {
