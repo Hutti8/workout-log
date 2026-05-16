@@ -441,7 +441,7 @@ function loadDayExercises() {
   }
   let html = `<div class="modal-exercise-header" style="margin-top:12px;"><span>Exercise</span><span>Sets</span><span>Reps</span><span>KG</span><span></span></div>`;
   day.exercises.forEach((ex, i) => {
-    html += `<div class="modal-exercise-row" id="log-row-${i}">
+    html += `<div class="exercise-log-row" id="log-row-${i}">
         <input type="text" id="exname-${i}" value="${ex.name}" placeholder="Exercise name" />
         <input type="number" id="sets-${i}" value="${ex.sets || ''}" placeholder="-" min="1" max="99" />
         <input type="number" id="reps-${i}" value="${ex.reps || ''}" placeholder="0" min="0" max="99" />
@@ -472,7 +472,7 @@ function addLogExercise() {
   const addBtn = container.querySelector('.btn-outline');
   const i = container.querySelectorAll('.modal-exercise-row').length;
   const row = document.createElement('div');
-  row.className = 'modal-exercise-row';
+  row.className = 'exercise-log-row';
   row.innerHTML = `
     <input type="text" id="exname-${i}" placeholder="Exercise name" />
     <input type="number" id="sets-${i}" placeholder="-" min="1" max="99" />
