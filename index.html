@@ -313,7 +313,7 @@
   <script src="app.js" type="module"></script>
   <script>
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/workout-log/service-worker.js');
+      navigator.serviceWorker.getRegistrations().then(regs => regs.forEach(r => r.unregister()));
     }
   </script>
 </body>
