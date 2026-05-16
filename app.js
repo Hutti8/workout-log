@@ -19,7 +19,10 @@ let chartInstances = {};
 
 // ---- HELPERS ----
 function normaliseTypes(arr) {
-  return (arr || []).map(t => typeof t === 'string' ? { name: t, fields: [] } : t);
+  return (arr || []).map(t => {
+    if (typeof t === 'string') return { name: t, fields: [] };
+    return { ...t, fields: (t.fields || []).map(f => typeof f === 'string' ? { name: f, default: '' } : f) };
+  });
 }
 
 // ---- SAVE STATE ----
@@ -103,8 +106,8 @@ function buildDynamicFieldsHTML(containerId, typeObj) {
   return `<div class="dynamic-fields">${
     typeObj.fields.map(f => `
       <div class="dynamic-field-row">
-        <span class="dynamic-field-label">${f}</span>
-        <input type="number" class="dynamic-field-input" id="field-${containerId}-${f.toLowerCase().replace(/\s/g,'_')}" placeholder="-" min="1" max="99" />
+        <span class="dynamic-field-label">${f.name}</span>
+        <input type="number" class="dynamic-field-input" id="field-${containerId}-${f.name.toLowerCase().replace(/\s/g,'_')}" placeholder="-" min="0" max="9999" step="0.1" value="${f.default || ''}" />
       </div>`).join('')
   }</div>`;
 }
@@ -113,8 +116,8 @@ function collectDynamicFields(containerId, typeObj) {
   if (!typeObj || !typeObj.fields || typeObj.fields.length === 0) return {};
   const result = {};
   typeObj.fields.forEach(f => {
-    const el = document.getElementById(`field-${containerId}-${f.toLowerCase().replace(/\s/g,'_')}`);
-    if (el) result[f] = el.value || '';
+    const el = document.getElementById(`field-${containerId}-${f.name.toLowerCase().replace(/\s/g,'_')}`);
+    if (el) result[f.name] = el.value || '';
   });
   return result;
 }
@@ -270,8 +273,8 @@ function resumeDraft() {
         const warmupType = state.warmupTypes[draft.warmupIdx || 0];
         if (warmupType && warmupType.fields) {
           warmupType.fields.forEach(f => {
-            const el = document.getElementById(`field-warmup-${f.toLowerCase().replace(/\s/g,'_')}`);
-            if (el && draft.warmupFields[f]) el.value = draft.warmupFields[f];
+            const el = document.getElementById(`field-warmup-${f.name.toLowerCase().replace(/\s/g,'_')}`);
+            if (el && draft.warmupFields[f.name]) el.value = draft.warmupFields[f.name];
           });
         }
       }
@@ -322,8 +325,8 @@ function resumeDraft() {
         const typeObj = state.cardioTypes[typeIndex >= 0 ? typeIndex : 0];
         if (typeObj && typeObj.fields) {
           typeObj.fields.forEach(f => {
-            const el = document.getElementById(`field-cardio-entry-${id}-${f.toLowerCase().replace(/\s/g,'_')}`);
-            if (el && entry.fields[f]) el.value = entry.fields[f];
+            const el = document.getElementById(`field-cardio-entry-${id}-${f.name.toLowerCase().replace(/\s/g,'_')}`);
+            if (el && entry.fields[f.name]) el.value = entry.fields[f.name];
           });
         }
       }
@@ -789,7 +792,7 @@ function renderWarmupTypesList() {
   if (state.warmupTypes.length === 0) { container.innerHTML = '<p class="empty-state">No warmup types yet.</p>'; return; }
   container.innerHTML = state.warmupTypes.map((t, i) => `
     <div class="setup-item">
-      <div><div class="setup-item-name">${t.name}</div>${t.fields && t.fields.length > 0 ? `<div class="setup-item-meta">${t.fields.join(' · ')}</div>` : ''}</div>
+      <div><div class="setup-item-name">${t.name}</div>${t.fields && t.fields.length > 0 ? `<div class="setup-item-meta">${t.fields.map(f => f.name).join(' · ')}</div>` : ''}</div>
       <div class="setup-item-actions">
         <button class="btn-outline" style="padding:6px 12px; font-size:13px;" onclick="openTypeEditor('warmup', ${i})">Edit</button>
         <button class="btn-danger" onclick="deleteWarmupType(${i})">🗑</button>
@@ -803,7 +806,7 @@ function renderCardioTypesList() {
   if (state.cardioTypes.length === 0) { container.innerHTML = '<p class="empty-state">No cardio types yet.</p>'; return; }
   container.innerHTML = state.cardioTypes.map((t, i) => `
     <div class="setup-item">
-      <div><div class="setup-item-name">${t.name}</div>${t.fields && t.fields.length > 0 ? `<div class="setup-item-meta">${t.fields.join(' · ')}</div>` : ''}</div>
+      <div><div class="setup-item-name">${t.name}</div>${t.fields && t.fields.length > 0 ? `<div class="setup-item-meta">${t.fields.map(f => f.name).join(' · ')}</div>` : ''}</div>
       <div class="setup-item-actions">
         <button class="btn-outline" style="padding:6px 12px; font-size:13px;" onclick="openTypeEditor('cardio', ${i})">Edit</button>
         <button class="btn-danger" onclick="deleteCardioType(${i})">🗑</button>
@@ -832,7 +835,8 @@ function openTypeEditor(kind, index) {
     nameInput.value = t.name;
     fieldsContainer.innerHTML = (t.fields || []).map(f => `
       <div class="type-field-row">
-        <input type="text" value="${f}" placeholder="e.g. Speed" />
+        <input type="text" value="${f.name}" placeholder="e.g. Speed" />
+        <input type="number" value="${f.default || ''}" placeholder="default" min="0" max="9999" step="0.1" style="width:80px;" />
         <button class="btn-danger" onclick="this.parentElement.remove()">🗑</button>
       </div>`).join('');
   }
@@ -842,7 +846,7 @@ function openTypeEditor(kind, index) {
 function addTypeField() {
   const row = document.createElement('div');
   row.className = 'type-field-row';
-  row.innerHTML = `<input type="text" placeholder="e.g. Speed" /><button class="btn-danger" onclick="this.parentElement.remove()">🗑</button>`;
+  row.innerHTML = `<input type="text" placeholder="e.g. Speed" /><input type="number" placeholder="default" min="0" max="9999" step="0.1" style="width:80px;" /><button class="btn-danger" onclick="this.parentElement.remove()">🗑</button>`;
   document.getElementById('type-modal-fields').appendChild(row);
 }
 
@@ -851,7 +855,10 @@ function closeTypeEditor() { document.getElementById('type-editor-overlay').styl
 async function saveType() {
   const name = document.getElementById('type-modal-name').value.trim();
   if (!name) return alert('Please enter a name.');
-  const fields = [...document.querySelectorAll('#type-modal-fields .type-field-row input')].map(i => i.value.trim()).filter(Boolean);
+  const fields = [...document.querySelectorAll('#type-modal-fields .type-field-row')].map(row => {
+    const inputs = row.querySelectorAll('input');
+    return { name: inputs[0].value.trim(), default: inputs[1].value || '' };
+  }).filter(f => f.name);
   const arr = editingTypeKind === 'warmup' ? state.warmupTypes : state.cardioTypes;
   if (editingTypeIndex === -1) arr.push({ name, fields });
   else arr[editingTypeIndex] = { name, fields };
