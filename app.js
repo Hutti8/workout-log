@@ -445,7 +445,7 @@ function loadDayExercises() {
   let html = `<div class="modal-exercise-header" style="margin-top:12px;"><span>Exercise</span><span>Sets</span><span>Reps</span><span>KG</span><span></span></div>`;
   day.exercises.forEach((ex, i) => {
     html += `<div class="exercise-log-row" id="log-row-${i}">
-        <input type="text" id="exname-${i}" value="${ex.name}" placeholder="Exercise name" />
+        ${buildExerciseSelect(i, ex.name)}
         <input type="number" id="sets-${i}" value="${ex.sets || ''}" placeholder="-" min="1" max="99" />
         <input type="number" id="reps-${i}" value="${ex.reps || ''}" placeholder="0" min="0" max="99" />
         <input type="number" id="kg-${i}" value="${ex.kg || ''}" placeholder="0" min="0" max="999" step="0.5" />
@@ -470,17 +470,40 @@ function removeLogExercise(btn) {
   btn.closest('.exercise-log-row').remove();
 }
 
+function buildExerciseSelect(i, selectedName) {
+  const inLibrary = (state.exercises || []).some(e => e.name === selectedName);
+  const extraOption = selectedName && !inLibrary ? `<option value="${selectedName}" selected>${selectedName}</option>` : '';
+  const options = (state.exercises || []).map(e =>
+    `<option value="${e.name}" ${e.name === selectedName ? 'selected' : ''}>${e.name}</option>`
+  ).join('');
+  return `<select id="exname-${i}" onchange="fillExerciseDefaults(${i})">${extraOption}${options}</select>`;
+}
+
+function fillExerciseDefaults(i) {
+  const sel = document.getElementById(`exname-${i}`);
+  if (!sel) return;
+  const ex = (state.exercises || []).find(e => e.name === sel.value);
+  if (!ex) return;
+  const setsEl = document.getElementById(`sets-${i}`);
+  const repsEl = document.getElementById(`reps-${i}`);
+  const kgEl = document.getElementById(`kg-${i}`);
+  if (setsEl) setsEl.value = ex.sets || '';
+  if (repsEl) repsEl.value = ex.reps || '';
+  if (kgEl) kgEl.value = ex.kg || '';
+}
+
 function addLogExercise() {
   const container = document.getElementById('exercise-log-list');
   const addBtn = container.querySelector('.btn-outline');
-  const i = container.querySelectorAll('.modal-exercise-row').length;
+  const i = container.querySelectorAll('.exercise-log-row').length;
   const row = document.createElement('div');
   row.className = 'exercise-log-row';
+  const firstEx = state.exercises && state.exercises[0];
   row.innerHTML = `
-    <input type="text" id="exname-${i}" placeholder="Exercise name" />
-    <input type="number" id="sets-${i}" placeholder="-" min="1" max="99" />
-    <input type="number" id="reps-${i}" placeholder="0" min="0" max="99" />
-    <input type="number" id="kg-${i}" placeholder="0" min="0" max="999" step="0.5" />
+    ${buildExerciseSelect(i, firstEx ? firstEx.name : '')}
+    <input type="number" id="sets-${i}" value="${firstEx ? firstEx.sets || '' : ''}" placeholder="-" min="1" max="99" />
+    <input type="number" id="reps-${i}" value="${firstEx ? firstEx.reps || '' : ''}" placeholder="0" min="0" max="99" />
+    <input type="number" id="kg-${i}" value="${firstEx ? firstEx.kg || '' : ''}" placeholder="0" min="0" max="999" step="0.5" />
     <button class="btn-danger" onclick="removeLogExercise(this)" style="padding:6px 8px;">🗑</button>
   `;
   container.insertBefore(row, addBtn);
@@ -1329,3 +1352,4 @@ window.addCardio = addCardio;
 window.removeCardio = removeCardio;
 window.removeLogExercise = removeLogExercise;
 window.addLogExercise = addLogExercise;
+window.fillExerciseDefaults = fillExerciseDefaults;
