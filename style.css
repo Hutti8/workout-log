@@ -185,7 +185,7 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 .modal-exercise-row.name-focused input:nth-child(4) { opacity: 0; pointer-events: none; padding: 8px 0; border-color: transparent; overflow: hidden; }
 
 /* EXERCISE LOG ROWS */
-.exercise-log-row { display: grid; grid-template-columns: 1fr auto auto auto; gap: 8px; align-items: center; margin-bottom: 8px; }
+.exercise-log-row { display: grid; grid-template-columns: 1fr auto auto auto auto; gap: 8px; align-items: center; margin-bottom: 8px; }
 .exercise-log-name { font-size: 14px; color: var(--text-primary); padding: 10px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .exercise-log-row input { text-align: center; }
 .exercise-log-header { display: grid; grid-template-columns: 1fr auto auto auto; gap: 8px; font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
