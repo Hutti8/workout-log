@@ -15,7 +15,21 @@
   --border: #3a3a42;
   --danger: #c0392b;
   --note-color: #f0a500;
+  --col-hi: var(--col-hi);
 }
+
+/* GIRLY THEME */
+body.girly {
+  --bg-primary: #1a101e;
+  --bg-card: #281528;
+  --bg-input: #1a101e;
+  --accent: #7b1a4a;
+  --accent-hover: #9b2a5a;
+  --border: #4a2842;
+  --col-hi: #f78fb3;
+}
+body.girly .btn-edit-sm { color: #f78fb3; border-color: #f78fb3; }
+body.girly .btn-edit-sm:hover { background: rgba(247,139,179,0.12); }
 
 html, body {
   height: 100%;
@@ -29,7 +43,7 @@ html, body {
 /* AUTH */
 #auth-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 1.5rem; }
 .auth-box { background: var(--bg-card); border-radius: 16px; border: 1px solid var(--border); padding: 2rem; width: 100%; max-width: 400px; }
-.auth-title { font-size: 24px; font-weight: 700; color: #7eb8f7; text-align: center; margin-bottom: 6px; }
+.auth-title { font-size: 24px; font-weight: 700; color: var(--col-hi); text-align: center; margin-bottom: 6px; }
 .auth-subtitle { font-size: 14px; color: var(--text-secondary); text-align: center; margin-bottom: 1.5rem; }
 .auth-error { background: rgba(192,57,43,0.15); border: 1px solid var(--danger); border-radius: 8px; color: #e74c3c; font-size: 13px; padding: 10px 12px; margin-bottom: 1rem; }
 .auth-divider { text-align: center; color: var(--text-secondary); font-size: 13px; margin: 1rem 0; position: relative; }
@@ -46,7 +60,7 @@ header {
   background: var(--bg-primary);
   border-bottom: 1px solid var(--border);
   padding: 1rem 1.25rem;
-  font-size: 18px; font-weight: 600; color: #7eb8f7;
+  font-size: 18px; font-weight: 600; color: var(--col-hi);
   display: flex; justify-content: space-between; align-items: center;
 }
 
@@ -58,7 +72,7 @@ header {
 .page-intro { color: var(--text-secondary); margin-bottom: 1rem; font-size: 15px; }
 
 .card { background: var(--bg-card); border-radius: 14px; border: 1px solid var(--border); padding: 1rem 1.25rem; margin-bottom: 1rem; }
-.card-title { font-size: 16px; font-weight: 600; color: #7eb8f7; margin-bottom: 1rem; }
+.card-title { font-size: 16px; font-weight: 600; color: var(--col-hi); margin-bottom: 1rem; }
 
 .field-label { display: block; font-size: 12px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; margin-top: 12px; }
 
@@ -74,11 +88,11 @@ select option { background: var(--bg-card); }
 input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 
-.btn-primary { background: var(--accent); color: #7eb8f7; border: none; border-radius: 10px; padding: 12px 20px; font-size: 15px; font-weight: 600; cursor: pointer; transition: background 0.15s; }
+.btn-primary { background: var(--accent); color: var(--col-hi); border: none; border-radius: 10px; padding: 12px 20px; font-size: 15px; font-weight: 600; cursor: pointer; transition: background 0.15s; }
 .btn-primary:hover { background: var(--accent-hover); }
 .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
 
-.btn-outline { background: #1a3a6e; color: #7eb8f7; border: 1px solid #1a3a6e; border-radius: 10px; padding: 10px 16px; font-size: 14px; font-weight: 500; cursor: pointer; transition: background 0.15s; }
+.btn-outline { background: #1a3a6e; color: var(--col-hi); border: 1px solid #1a3a6e; border-radius: 10px; padding: 10px 16px; font-size: 14px; font-weight: 500; cursor: pointer; transition: background 0.15s; }
 .btn-outline:hover { background: #1a4f9e; }
 
 .btn-danger { background: transparent; color: var(--danger); border: none; font-size: 18px; cursor: pointer; padding: 4px 8px; border-radius: 6px; }
@@ -87,7 +101,7 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 .btn-danger-sm { background: transparent; color: var(--danger); border: 1px solid var(--danger); border-radius: 8px; padding: 4px 10px; font-size: 12px; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
 .btn-danger-sm:hover { background: rgba(192,57,43,0.12); }
 
-.btn-edit-sm { background: transparent; color: #7eb8f7; border: 1px solid #7eb8f7; border-radius: 8px; padding: 4px 10px; font-size: 12px; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+.btn-edit-sm { background: transparent; color: var(--col-hi); border: 1px solid var(--col-hi); border-radius: 8px; padding: 4px 10px; font-size: 12px; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
 .btn-edit-sm:hover { background: rgba(126,184,247,0.12); }
 
 /* DRAFT BANNER */
@@ -103,6 +117,12 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 }
 
 .full-width { width: 100%; }
+
+/* THEME TOGGLE */
+.theme-btn { background: transparent; border: 1px solid #c2698f; color: #f78fb3; border-radius: 20px; padding: 5px 14px; font-size: 13px; cursor: pointer; transition: all 0.15s; }
+.theme-btn:hover { background: rgba(247,139,179,0.12); }
+body.girly .theme-btn { background: #1a3a6e; border-color: #7eb8f7; color: #7eb8f7; }
+body.girly .theme-btn:hover { background: #1a4f9e; }
 
 /* RECENT WORKOUTS */
 .recent-label { font-size: 12px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
@@ -192,7 +212,7 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 /* HISTORY CARDS */
 .history-card { background: var(--bg-card); border-radius: 14px; border: 1px solid var(--border); padding: 1rem 1.25rem; margin-bottom: 1rem; }
 .history-card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px; }
-.history-date { font-size: 13px; color: #7eb8f7; font-weight: 600; }
+.history-date { font-size: 13px; color: var(--col-hi); font-weight: 600; }
 .history-day-name { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
 .history-meta { font-size: 13px; color: var(--text-secondary); margin-bottom: 4px; }
 .history-calories { font-size: 13px; color: var(--note-color); margin-bottom: 8px; font-weight: 500; }
@@ -201,7 +221,7 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 .history-note { font-size: 12px; color: var(--note-color); font-style: italic; margin-top: 2px; }
 
 /* Cardio only badge */
-.cardio-only-badge { display: inline-block; background: #1a3a6e; color: #7eb8f7; font-size: 11px; padding: 2px 8px; border-radius: 20px; margin-bottom: 8px; }
+.cardio-only-badge { display: inline-block; background: #1a3a6e; color: var(--col-hi); font-size: 11px; padding: 2px 8px; border-radius: 20px; margin-bottom: 8px; }
 
 .empty-state { text-align: center; color: var(--text-secondary); font-size: 14px; padding: 2rem; }
 

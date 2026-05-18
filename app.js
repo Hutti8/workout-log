@@ -51,6 +51,8 @@ async function handleRegister() {
 
 async function handleSignOut() { await logoutUser(); }
 
+applyStoredTheme();
+
 onAuthChange(async (user) => {
   if (user) {
     currentUser = user;
@@ -298,6 +300,21 @@ function resumeDraft() {
 function discardDraft() {
   clearDraft();
   renderContinueButton();
+}
+
+// ---- THEME ----
+function toggleTheme() {
+  const isGirly = document.body.classList.toggle('girly');
+  localStorage.setItem('theme', isGirly ? 'girly' : 'default');
+  document.getElementById('theme-btn').textContent = isGirly ? '← Default' : '🌸 Girly';
+}
+
+function applyStoredTheme() {
+  if (localStorage.getItem('theme') === 'girly') {
+    document.body.classList.add('girly');
+    const btn = document.getElementById('theme-btn');
+    if (btn) btn.textContent = '← Default';
+  }
 }
 
 // ---- SHARED WORKOUT CARD RENDERER ----
@@ -885,3 +902,4 @@ window.deleteWarmupType = deleteWarmupType;
 window.deleteCardioType = deleteCardioType;
 window.resumeDraft = resumeDraft;
 window.discardDraft = discardDraft;
+window.toggleTheme = toggleTheme;
