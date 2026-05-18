@@ -6,7 +6,6 @@
   <meta name="theme-color" content="#1a1a1e" />
   <title>Workout Log</title>
   <link rel="stylesheet" href="style.css" />
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
 
@@ -38,24 +37,24 @@
     <!-- PAGE: TODAY -->
     <section id="page-today" class="page active">
 
-      <!-- IDLE: choose workout type -->
+      <!-- IDLE -->
       <div id="today-idle">
         <p class="page-intro">Ready to train?</p>
-        <button class="btn-primary full-width" onclick="startWorkout(false, false)" style="margin-bottom:0.75rem;">💪 Start workout</button>
-        <button class="btn-outline full-width" onclick="startWorkout(false, true)">🏃 Cardio only</button>
+        <button class="btn-primary full-width" onclick="startWorkout()">💪 Start workout</button>
         <div id="continue-draft-area" style="margin-top:1rem;"></div>
+        <div id="recent-workouts" style="margin-top:1.5rem;"></div>
       </div>
 
-      <!-- PLANNING: regular workout -->
+      <!-- PLANNING / EDIT -->
       <div id="today-planning" style="display:none;">
 
-        <div class="card" id="manual-date-card" style="display:none;">
-          <div class="card-title">📅 Workout date</div>
-          <label class="field-label">Date</label>
-          <input type="date" id="manual-date" />
+        <!-- Date card — shown only in edit mode -->
+        <div class="card" id="edit-date-card" style="display:none;">
+          <div class="card-title">📅 Date</div>
+          <input type="date" id="edit-date" />
         </div>
 
-        <!-- Warmup (optional, hidden by default) -->
+        <!-- Warmup (optional) -->
         <div class="card" id="section-warmup" style="display:none;">
           <div class="card-title" style="display:flex; justify-content:space-between; align-items:center;">
             <span>🔥 Warmup</span>
@@ -68,17 +67,19 @@
           <input type="number" id="warmup-time" placeholder="e.g. 10" min="1" max="120" />
         </div>
 
-        <!-- Exercises (hidden in cardio only mode) -->
+        <!-- Exercises -->
         <div class="card" id="section-exercises">
-          <div class="card-title">💪 Workout</div>
-          <label class="field-label">Day</label>
-          <select id="day-select" onchange="loadDayExercises()"></select>
+          <div class="card-title">💪 Exercises</div>
+          <div id="exercise-log-header" class="exercise-log-header" style="display:none;">
+            <span>Exercise</span><span>Sets</span><span>Reps</span><span>KG</span>
+          </div>
           <div id="exercise-log-list"></div>
+          <button class="btn-outline full-width" style="margin-top:8px;" onclick="addLogExercise()">+ Add exercise</button>
         </div>
 
-        <!-- Cardio (optional, hidden by default in regular mode) -->
+        <!-- Cardio (optional) -->
         <div class="card" id="section-cardio" style="display:none;">
-          <div class="card-title" id="cardio-card-title" style="display:flex; justify-content:space-between; align-items:center;">
+          <div class="card-title" style="display:flex; justify-content:space-between; align-items:center;">
             <span>🏃 Cardio</span>
             <button class="btn-danger" id="cardio-remove-btn" onclick="removeCardio()" style="font-size:14px; padding:2px 8px;">✕ Remove</button>
           </div>
@@ -86,40 +87,28 @@
           <button class="btn-outline full-width" onclick="addCardioEntry()" style="margin-top:8px;">+ Add cardio</button>
         </div>
 
-        <!-- Add optional section buttons (hidden in cardio only mode) -->
-        <div id="section-add-buttons" style="display:flex; gap:8px; margin-bottom:1rem;">
+        <!-- Add optional sections -->
+        <div style="display:flex; gap:8px; margin-bottom:1rem;">
           <button class="btn-outline" id="btn-add-warmup" onclick="addWarmup()" style="flex:1;">🔥 Add warmup</button>
           <button class="btn-outline" id="btn-add-cardio" onclick="addCardio()" style="flex:1;">🏃 Add cardio</button>
         </div>
 
-        <button class="btn-primary full-width" onclick="showSummary()" style="margin-bottom:1rem;">Start now ▶</button>
-
-      </div>
-
-      <!-- SUMMARY -->
-      <div id="today-summary" style="display:none;">
-        <div class="card">
-          <div class="card-title">📋 Summary</div>
-          <div id="summary-content"></div>
-          <div class="calories-row">
-            <span class="calories-label">🔥 Calories burned</span>
-            <input type="number" id="calories-input" placeholder="e.g. 420" min="0" max="9999" class="calories-input" />
-          </div>
-          <button class="btn-primary full-width" style="margin-top:1rem;" onclick="saveWorkout()">Save workout</button>
+        <!-- Calories -->
+        <div class="card" style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:1rem;">
+          <span style="font-size:14px; font-weight:500; white-space:nowrap;">🔥 Calories burned</span>
+          <input type="number" id="calories-input" placeholder="e.g. 420" min="0" max="9999" style="width:110px; text-align:center;" />
         </div>
-        <button class="btn-outline full-width" onclick="backToPlanning()" style="margin-bottom:1rem;">← Back to edit</button>
+
+        <!-- Log / Save -->
+        <button class="btn-primary full-width" id="log-btn" onclick="saveWorkout()" style="margin-bottom:0.5rem;">Log workout now</button>
+        <button class="btn-outline full-width" id="cancel-edit-btn" onclick="cancelEdit()" style="display:none; margin-bottom:1rem;">← Cancel</button>
+
       </div>
 
     </section>
 
     <!-- PAGE: SETUP -->
     <section id="page-setup" class="page">
-
-      <div class="card">
-        <div class="card-title">📅 Workout days</div>
-        <div id="days-list"></div>
-        <button class="btn-outline full-width" onclick="openDayEditor(-1)">+ Add day</button>
-      </div>
 
       <div class="card">
         <div class="card-title">💪 Exercise library</div>
@@ -143,65 +132,9 @@
 
     <!-- PAGE: HISTORY -->
     <section id="page-history" class="page">
-
-      <!-- Tab toggle -->
-      <div class="history-tabs">
-        <button class="history-tab active" id="tab-btn-history" onclick="switchHistoryTab('history')">📋 History</button>
-        <button class="history-tab" id="tab-btn-stats" onclick="switchHistoryTab('stats')">📊 Stats</button>
-      </div>
-
-      <!-- Tab: History -->
-      <div id="history-tab-history">
-        <button class="btn-outline full-width" onclick="startManualWorkout(false)" style="margin-bottom:0.5rem;">+ Add workout manually</button>
-        <button class="btn-outline full-width" onclick="startManualWorkout(true)" style="margin-bottom:1rem;">+ Add cardio manually</button>
-        <div id="history-stats"></div>
-        <div id="history-list"></div>
-      </div>
-
-      <!-- Tab: Stats -->
-      <div id="history-tab-stats" style="display:none;">
-        <div class="card">
-          <div class="card-title">📅 Workout frequency</div>
-          <canvas id="chart-frequency"></canvas>
-        </div>
-        <div class="card">
-          <div class="card-title">🔥 Calories over time</div>
-          <canvas id="chart-calories"></canvas>
-        </div>
-        <div class="card">
-          <div class="card-title">📈 Volume over time (total kg)</div>
-          <canvas id="chart-volume"></canvas>
-        </div>
-        <div id="exercise-charts"></div>
-      </div>
-
+      <button class="btn-outline full-width" onclick="exportWorkouts()" style="margin-bottom:1rem;">⬇️ Export workouts</button>
+      <div id="history-list"></div>
     </section>
-
-    <!-- DAY EDITOR MODAL -->
-    <div id="day-editor-overlay" class="overlay" style="display:none;">
-      <div class="modal">
-        <div class="modal-title" id="modal-title">Edit day</div>
-        <label class="field-label">Day name</label>
-        <input type="text" id="modal-day-name" placeholder="e.g. Day 1 – Push" />
-        <div class="field-label" style="margin-top:1rem;">Exercises</div>
-        <div class="modal-exercise-header">
-          <span>Exercise</span>
-          <span>Sets</span>
-          <span>Reps</span>
-          <span>KG</span>
-          <span></span>
-        </div>
-        <div id="modal-exercise-list"></div>
-        <div style="display:flex; gap:8px; margin-top:10px;">
-          <button class="btn-outline" style="flex:1;" onclick="addExerciseToModal()">+ Add blank</button>
-          <button class="btn-outline" style="flex:1;" onclick="openLibraryPicker()">📚 From library</button>
-        </div>
-        <div style="display:flex; gap:8px; margin-top:1rem;">
-          <button class="btn-primary" style="flex:1;" onclick="saveDay()">Save</button>
-          <button class="btn-outline" style="flex:1;" onclick="closeDayEditor()">Cancel</button>
-        </div>
-      </div>
-    </div>
 
     <!-- EXERCISE EDITOR MODAL -->
     <div id="exercise-editor-overlay" class="overlay" style="display:none;">
@@ -220,57 +153,6 @@
         <div style="display:flex; gap:8px; margin-top:1rem;">
           <button class="btn-primary" style="flex:1;" onclick="saveExerciseEditor()">Save</button>
           <button class="btn-outline" style="flex:1;" onclick="closeExerciseEditor()">Cancel</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- LIBRARY PICKER MODAL -->
-    <div id="library-picker-overlay" class="overlay" style="display:none;">
-      <div class="modal">
-        <div class="modal-title">📚 Add from library</div>
-        <div id="library-picker-list"></div>
-        <div style="display:flex; gap:8px; margin-top:1rem;">
-          <button class="btn-primary" style="flex:1;" onclick="confirmLibraryPick()">Add selected</button>
-          <button class="btn-outline" style="flex:1;" onclick="closeLibraryPicker()">Cancel</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- HISTORY EDIT MODAL -->
-    <div id="history-edit-overlay" class="overlay" style="display:none;">
-      <div class="modal">
-        <div class="modal-title">✏️ Edit workout</div>
-
-        <label class="field-label">Date</label>
-        <input type="date" id="hedit-date" />
-
-        <div id="hedit-exercises-section">
-          <div class="field-label" style="margin-top:1rem;">Exercises</div>
-          <div class="modal-exercise-header">
-            <span>Exercise</span>
-            <span>Sets</span>
-            <span>Reps</span>
-            <span>KG</span>
-            <span></span>
-          </div>
-          <div id="hedit-exercise-list"></div>
-          <button class="btn-outline full-width" style="margin-top:8px;" onclick="addHeditExercise()">+ Add exercise</button>
-        </div>
-
-        <div id="hedit-cardio-section">
-          <div class="field-label" style="margin-top:1rem;">Cardio entries</div>
-          <div id="hedit-cardio-list"></div>
-        </div>
-
-        <label class="field-label">Notes (one per line, matched to exercises by order)</label>
-        <textarea id="hedit-notes" rows="3" style="width:100%; background:var(--bg-input); border:1px solid var(--border); border-radius:8px; color:var(--text-primary); font-size:14px; padding:10px 12px; resize:vertical;"></textarea>
-
-        <label class="field-label">Calories burned</label>
-        <input type="number" id="hedit-calories" placeholder="e.g. 420" min="0" max="9999" />
-
-        <div style="display:flex; gap:8px; margin-top:1.25rem;">
-          <button class="btn-primary" style="flex:1;" onclick="saveHistoryEdit()">Save</button>
-          <button class="btn-outline" style="flex:1;" onclick="closeHistoryEdit()">Cancel</button>
         </div>
       </div>
     </div>

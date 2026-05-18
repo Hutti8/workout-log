@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Advanced Stats — Workout Log</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #1a1a1e; --card: #2a2a2f; --input: #1a1a1e;
+      --border: #3a3a42; --text: #ffffff; --muted: #9a9a9f;
+      --accent: #7eb8f7; --orange: #f0a500; --blue: #1a3a6e;
+    }
+    body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 16px; min-height: 100vh; }
+    #app { max-width: 700px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+    h1 { font-size: 22px; font-weight: 700; color: var(--accent); margin-bottom: 0.25rem; }
+    .subtitle { font-size: 14px; color: var(--muted); margin-bottom: 1.5rem; }
+    .upload-area {
+      background: var(--card); border: 2px dashed var(--border); border-radius: 16px;
+      padding: 2rem; text-align: center; cursor: pointer; transition: border-color 0.15s; margin-bottom: 1.5rem;
+    }
+    .upload-area:hover, .upload-area.drag-over { border-color: var(--accent); }
+    .upload-icon { font-size: 40px; margin-bottom: 0.75rem; }
+    .upload-label { font-size: 15px; color: var(--text); font-weight: 500; margin-bottom: 0.25rem; }
+    .upload-hint { font-size: 13px; color: var(--muted); }
+    #file-input { display: none; }
+    .card { background: var(--card); border-radius: 14px; border: 1px solid var(--border); padding: 1rem 1.25rem; margin-bottom: 1rem; }
+    .card-title { font-size: 15px; font-weight: 600; color: var(--accent); margin-bottom: 1rem; }
+    canvas { max-height: 220px; }
+    .empty { font-size: 13px; color: var(--muted); text-align: center; padding: 1.5rem 0; }
+    .summary-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 1rem; }
+    .stat-box { background: var(--input); border: 1px solid var(--border); border-radius: 12px; padding: 14px; text-align: center; }
+    .stat-value { font-size: 28px; font-weight: 700; color: var(--accent); }
+    .stat-label { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    #stats-content { display: none; }
+    .back-link { display: inline-block; color: var(--accent); font-size: 14px; text-decoration: none; margin-bottom: 1rem; }
+    .back-link:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+<div id="app">
+  <a class="back-link" href="/workout-log/">← Back to app</a>
+  <h1>📊 Advanced Stats</h1>
+  <p class="subtitle">Upload your exported workouts.json to see your stats.</p>
+
+  <div class="upload-area" id="upload-area" onclick="document.getElementById('file-input').click()">
+    <div class="upload-icon">📁</div>
+    <div class="upload-label">Click to upload workouts.json</div>
+    <div class="upload-hint">Or drag and drop the file here</div>
+  </div>
+  <input type="file" id="file-input" accept=".json" />
+
+  <div id="stats-content">
+    <div class="summary-grid">
+      <div class="stat-box"><div class="stat-value" id="stat-total">0</div><div class="stat-label">Total workouts</div></div>
+      <div class="stat-box"><div class="stat-value" id="stat-calories">0</div><div class="stat-label">Avg kcal / session</div></div>
+      <div class="stat-box"><div class="stat-value" id="stat-exercises">0</div><div class="stat-label">Unique exercises</div></div>
+      <div class="stat-box"><div class="stat-value" id="stat-streak">0</div><div class="stat-label">Longest streak (days)</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📅 Workout frequency</div>
+      <canvas id="chart-frequency"></canvas>
+    </div>
+    <div class="card">
+      <div class="card-title">🔥 Calories over time</div>
+      <canvas id="chart-calories"></canvas>
+      <p class="empty" id="empty-calories" style="display:none;">No calorie data yet.</p>
+    </div>
+    <div class="card">
+      <div class="card-title">📈 Volume over time (total kg)</div>
+      <canvas id="chart-volume"></canvas>
+      <p class="empty" id="empty-volume" style="display:none;">No lifting data yet.</p>
+    </div>
+    <div id="exercise-charts"></div>
+  </div>
+</div>
+
+<script>
+  const chartInstances = {};
+
+  function destroyChart(id) {
+    if (chartInstances[id]) { chartInstances[id].destroy(); delete chartInstances[id]; }
+  }
+
+  function chartOptions(yLabel) {
+    return {
+      responsive: true, maintainAspectRatio: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#9a9a9f', font: { size: 10 }, maxRotation: 45 }, grid: { color: '#3a3a42' } },
+        y: {
+          ticks: { color: '#9a9a9f', font: { size: 10 } }, grid: { color: '#3a3a42' },
+          title: yLabel ? { display: true, text: yLabel, color: '#9a9a9f', font: { size: 11 } } : { display: false }
+        }
+      }
+    };
+  }
+
+  function longestStreak(history) {
+    if (!history.length) return 0;
+    const days = [...new Set(history.map(w => new Date(w.date).toDateString()))].map(d => new Date(d)).sort((a, b) => a - b);
+    let max = 1, cur = 1;
+    for (let i = 1; i < days.length; i++) {
+      const diff = (days[i] - days[i-1]) / 86400000;
+      cur = diff === 1 ? cur + 1 : 1;
+      if (cur > max) max = cur;
+    }
+    return max;
+  }
+
+  function render(history) {
+    document.getElementById('stats-content').style.display = 'block';
+    const sorted = [...history].sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    // Summary stats
+    document.getElementById('stat-total').textContent = history.length;
+    const calWorkouts = history.filter(w => w.calories && !isNaN(parseFloat(w.calories)));
+    const avgCal = calWorkouts.length ? Math.round(calWorkouts.reduce((s, w) => s + parseFloat(w.calories), 0) / calWorkouts.length) : 0;
+    document.getElementById('stat-calories').textContent = avgCal || '—';
+    const uniqueEx = new Set(history.flatMap(w => (w.exercises || []).map(e => e.name))).size;
+    document.getElementById('stat-exercises').textContent = uniqueEx;
+    document.getElementById('stat-streak').textContent = longestStreak(history);
+
+    // Frequency chart
+    const freqMap = {};
+    sorted.forEach(w => {
+      const d = new Date(w.date);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      freqMap[key] = (freqMap[key] || 0) + 1;
+    });
+    const freqLabels = Object.keys(freqMap);
+    destroyChart('frequency');
+    chartInstances['frequency'] = new Chart(document.getElementById('chart-frequency'), {
+      type: 'bar',
+      data: { labels: freqLabels, datasets: [{ data: freqLabels.map(k => freqMap[k]), backgroundColor: '#1a3a6e', borderColor: '#7eb8f7', borderWidth: 1, borderRadius: 4 }] },
+      options: chartOptions('sessions')
+    });
+
+    // Calories chart
+    const calSorted = sorted.filter(w => w.calories && !isNaN(parseFloat(w.calories)));
+    destroyChart('calories');
+    if (calSorted.length) {
+      document.getElementById('empty-calories').style.display = 'none';
+      document.getElementById('chart-calories').style.display = '';
+      chartInstances['calories'] = new Chart(document.getElementById('chart-calories'), {
+        type: 'line',
+        data: { labels: calSorted.map(w => new Date(w.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })), datasets: [{ data: calSorted.map(w => parseFloat(w.calories)), borderColor: '#f0a500', backgroundColor: 'rgba(240,165,0,0.1)', tension: 0.3, pointRadius: 4, pointBackgroundColor: '#f0a500', fill: true }] },
+        options: chartOptions('kcal')
+      });
+    } else {
+      document.getElementById('chart-calories').style.display = 'none';
+      document.getElementById('empty-calories').style.display = 'block';
+    }
+
+    // Volume chart
+    const volSorted = sorted.filter(w => w.exercises && w.exercises.length > 0);
+    destroyChart('volume');
+    if (volSorted.length) {
+      document.getElementById('empty-volume').style.display = 'none';
+      document.getElementById('chart-volume').style.display = '';
+      chartInstances['volume'] = new Chart(document.getElementById('chart-volume'), {
+        type: 'line',
+        data: { labels: volSorted.map(w => new Date(w.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })), datasets: [{ data: volSorted.map(w => w.exercises.reduce((s, e) => s + ((parseFloat(e.kg) || 0) * (parseInt(e.reps) || 0)), 0)), borderColor: '#7eb8f7', backgroundColor: 'rgba(126,184,247,0.1)', tension: 0.3, pointRadius: 4, pointBackgroundColor: '#7eb8f7', fill: true }] },
+        options: chartOptions('kg')
+      });
+    } else {
+      document.getElementById('chart-volume').style.display = 'none';
+      document.getElementById('empty-volume').style.display = 'block';
+    }
+
+    // Per-exercise charts
+    const exMap = {};
+    sorted.forEach(w => {
+      if (!w.exercises) return;
+      const label = new Date(w.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+      w.exercises.forEach(ex => {
+        if (!ex.name || ex.kg === '' || ex.kg === undefined) return;
+        const kg = parseFloat(ex.kg);
+        if (isNaN(kg)) return;
+        if (!exMap[ex.name]) exMap[ex.name] = { labels: [], data: [] };
+        exMap[ex.name].labels.push(label);
+        exMap[ex.name].data.push(kg);
+      });
+    });
+    const exContainer = document.getElementById('exercise-charts');
+    Object.keys(chartInstances).forEach(k => { if (k.startsWith('ex-')) destroyChart(k); });
+    exContainer.innerHTML = '';
+    const exEntries = Object.entries(exMap).filter(([, { data }]) => data.length >= 2);
+    if (exEntries.length === 0) {
+      exContainer.innerHTML = '<div class="card"><div class="card-title">💪 Exercise progress</div><p class="empty">Log at least 2 sessions with the same exercise to see progress charts.</p></div>';
+    } else {
+      exEntries.forEach(([name, { labels, data }]) => {
+        const safeId = 'ex-' + name.replace(/[^a-zA-Z0-9]/g, '_');
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `<div class="card-title">💪 ${name}</div><canvas id="chart-${safeId}"></canvas>`;
+        exContainer.appendChild(card);
+        chartInstances[safeId] = new Chart(card.querySelector('canvas'), {
+          type: 'line',
+          data: { labels, datasets: [{ data, borderColor: '#7eb8f7', backgroundColor: 'rgba(126,184,247,0.08)', tension: 0.3, pointRadius: 4, pointBackgroundColor: '#7eb8f7', fill: true }] },
+          options: chartOptions('kg')
+        });
+      });
+    }
+  }
+
+  function loadFile(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const history = JSON.parse(e.target.result);
+        if (!Array.isArray(history)) throw new Error('Invalid format');
+        render(history);
+      } catch {
+        alert('Invalid file. Please upload a workouts.json exported from the app.');
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  document.getElementById('file-input').addEventListener('change', e => loadFile(e.target.files[0]));
+
+  const area = document.getElementById('upload-area');
+  area.addEventListener('dragover', e => { e.preventDefault(); area.classList.add('drag-over'); });
+  area.addEventListener('dragleave', () => area.classList.remove('drag-over'));
+  area.addEventListener('drop', e => { e.preventDefault(); area.classList.remove('drag-over'); loadFile(e.dataTransfer.files[0]); });
+</script>
+</body>
+</html>
