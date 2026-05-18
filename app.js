@@ -850,7 +850,33 @@ async function saveType() {
 }
 
 // ---- RENDER HISTORY ----
+function renderStats() {
+  const container = document.getElementById('history-stats');
+  if (!container || !state.history || state.history.length === 0) { if (container) container.innerHTML = ''; return; }
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const currentYear = new Date().getFullYear();
+  const counts = {};
+  state.history.forEach(w => {
+    const d = new Date(w.date);
+    const y = d.getFullYear(); const m = d.getMonth();
+    if (!counts[y]) counts[y] = Array(12).fill(0);
+    counts[y][m]++;
+  });
+  let html = '';
+  for (let year = currentYear; year >= 2025; year--) {
+    const yearCounts = counts[year] || Array(12).fill(0);
+    const yearTotal = yearCounts.reduce((a, b) => a + b, 0);
+    const monthCells = MONTHS.map((name, i) => {
+      const count = yearCounts[i];
+      return `<div class="stats-month ${count > 0 ? 'has-workouts' : ''}"><div class="stats-month-name">${name}</div><div class="stats-month-count">${count > 0 ? count : '·'}</div></div>`;
+    }).join('');
+    html += `<div class="stats-card"><div class="stats-year-title"><span>${year}</span><span class="stats-year-total">${yearTotal} workout${yearTotal !== 1 ? 's' : ''}</span></div><div class="stats-months">${monthCells}</div></div>`;
+  }
+  container.innerHTML = html;
+}
+
 function renderHistory() {
+  renderStats();
   const container = document.getElementById('history-list');
   if (!container) return;
   if (!state.history || state.history.length === 0) {
