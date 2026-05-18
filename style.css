@@ -15,7 +15,7 @@
   --border: #3a3a42;
   --danger: #c0392b;
   --note-color: #f0a500;
-  --col-hi: var(--col-hi);
+  --col-hi: #7eb8f7;
 }
 
 /* GIRLY THEME */
@@ -119,10 +119,10 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 .full-width { width: 100%; }
 
 /* THEME TOGGLE */
-.theme-btn { background: transparent; border: 1px solid #c2698f; color: #f78fb3; border-radius: 20px; padding: 5px 14px; font-size: 13px; cursor: pointer; transition: all 0.15s; }
-.theme-btn:hover { background: rgba(247,139,179,0.12); }
+.theme-btn { background: #c2698f; border: 1px solid #c2698f; color: #fff; border-radius: 20px; padding: 5px 14px; font-size: 13px; cursor: pointer; transition: all 0.15s; }
+.theme-btn:hover { background: #a8547a; border-color: #a8547a; }
 body.girly .theme-btn { background: #1a3a6e; border-color: #7eb8f7; color: #7eb8f7; }
-body.girly .theme-btn:hover { background: #1a4f9e; }
+body.girly .theme-btn:hover { background: #1a4f9e; border-color: #1a4f9e; }
 
 /* RECENT WORKOUTS */
 .recent-label { font-size: 12px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
@@ -208,6 +208,17 @@ body.girly .theme-btn:hover { background: #1a4f9e; }
 .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 100; display: flex; align-items: center; justify-content: center; padding: 1rem; }
 .modal { background: var(--bg-card); border-radius: 16px; border: 1px solid var(--border); padding: 1.5rem; width: 100%; max-width: 440px; max-height: 85vh; overflow-y: auto; }
 .modal-title { font-size: 17px; font-weight: 600; margin-bottom: 1rem; }
+
+/* HISTORY STATS HEATMAP */
+.stats-card { background: var(--bg-card); border-radius: 12px; border: 1px solid var(--border); padding: 0.75rem 1rem; margin-bottom: 0.75rem; }
+.stats-year-title { font-size: 13px; font-weight: 600; color: var(--col-hi); margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; }
+.stats-year-total { font-size: 11px; color: var(--text-secondary); font-weight: 400; }
+.stats-months { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
+.stats-month { background: var(--bg-input); border-radius: 6px; padding: 4px 2px; text-align: center; }
+.stats-month-name { font-size: 9px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 1px; }
+.stats-month-count { font-size: 13px; font-weight: 600; color: var(--text-secondary); }
+.stats-month.has-workouts .stats-month-count { color: var(--col-hi); }
+.stats-month.has-workouts .stats-month-name { color: var(--text-primary); }
 
 /* HISTORY CARDS */
 .history-card { background: var(--bg-card); border-radius: 14px; border: 1px solid var(--border); padding: 1rem 1.25rem; margin-bottom: 1rem; }
