@@ -31,7 +31,10 @@
 
     <header>
       <span id="header-title">Workout Log</span>
-      <button class="btn-signout" onclick="handleSignOut()">Sign out</button>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <button id="theme-btn" onclick="toggleTheme()" class="theme-btn">🌸 Girly</button>
+        <button class="btn-signout" onclick="handleSignOut()">Sign out</button>
+      </div>
     </header>
 
     <!-- PAGE: TODAY -->
@@ -39,9 +42,6 @@
 
       <!-- IDLE -->
       <div id="today-idle">
-        <div style="display:flex; justify-content:flex-end; margin-bottom:0.75rem;">
-          <button id="theme-btn" onclick="toggleTheme()" class="theme-btn">🌸 Girly</button>
-        </div>
         <p class="page-intro">Ready to train?</p>
         <button class="btn-primary full-width" onclick="startWorkout()">💪 Start workout</button>
         <div id="continue-draft-area" style="margin-top:1rem;"></div>
@@ -136,6 +136,7 @@
     <!-- PAGE: HISTORY -->
     <section id="page-history" class="page">
       <button class="btn-outline full-width" onclick="exportWorkouts()" style="margin-bottom:1rem;">⬇️ Export workouts</button>
+      <div id="history-stats"></div>
       <div id="history-list"></div>
     </section>
 
