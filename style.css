@@ -106,9 +106,6 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 
 /* RECENT WORKOUTS */
 .recent-label { font-size: 12px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
-.recent-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 10px 14px; margin-bottom: 8px; }
-.recent-date { font-size: 12px; color: #7eb8f7; font-weight: 600; margin-bottom: 2px; }
-.recent-detail { font-size: 13px; color: var(--text-secondary); }
 
 /* ---- CARDIO ENTRY ROWS ---- */
 .cardio-entry {

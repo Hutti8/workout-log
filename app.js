@@ -300,25 +300,61 @@ function discardDraft() {
   renderContinueButton();
 }
 
+// ---- SHARED WORKOUT CARD RENDERER ----
+function workoutCardHTML(w, i) {
+  const date = new Date(w.date).toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  let body = '';
+  let warmupStr = (w.warmup || '') + (w.warmupTime ? ` · ${w.warmupTime} min` : '');
+  if (w.warmupFields) {
+    const extras = Object.entries(w.warmupFields).filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`).join(' · ');
+    if (extras) warmupStr += ` · ${extras}`;
+  }
+  if (w.warmup) body += `<div class="history-meta">🔥 ${warmupStr}</div>`;
+  if (w.dayName) body += `<div class="history-day-name">${w.dayName}</div>`;
+  if (w.exercises && w.exercises.length > 0) {
+    body += w.exercises.map(ex => `
+      <div class="history-exercise">
+        <span>${ex.name}</span>
+        <span>${ex.sets ? ex.sets + ' sets · ' : ''}${ex.reps ? ex.reps + ' reps' : ''} ${ex.kg ? '· ' + ex.kg + ' kg' : ''}</span>
+      </div>`).join('');
+  }
+  if (w.cardioEntries && w.cardioEntries.length > 0) {
+    w.cardioEntries.forEach(c => {
+      let cardioStr = c.name + (c.time ? ` · ${c.time} min` : '');
+      if (c.fields) {
+        const extras = Object.entries(c.fields).filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`).join(' · ');
+        if (extras) cardioStr += ` · ${extras}`;
+      }
+      body += `<div class="history-meta">🏃 ${cardioStr}</div>`;
+    });
+  } else if (w.cardio) {
+    let cardioStr = w.cardio + (w.cardioTime ? ` · ${w.cardioTime} min` : '');
+    if (w.cardioFields) {
+      const extras = Object.entries(w.cardioFields).filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`).join(' · ');
+      if (extras) cardioStr += ` · ${extras}`;
+    }
+    body += `<div class="history-meta">🏃 ${cardioStr}</div>`;
+  }
+  if (w.calories) body += `<div class="history-calories">🔥 ${w.calories} kcal</div>`;
+  return `
+    <div class="history-card">
+      <div class="history-card-header">
+        <div class="history-date">${date}</div>
+        <div style="display:flex; gap:6px;">
+          <button class="btn-edit-sm" onclick="openWorkoutEdit(${i})">✏️ Edit</button>
+          <button class="btn-danger-sm" onclick="deleteWorkout(${i})">🗑 Delete</button>
+        </div>
+      </div>
+      ${body}
+    </div>`;
+}
+
 // ---- RECENT WORKOUTS ----
 function renderRecentWorkouts() {
   const container = document.getElementById('recent-workouts');
   if (!container) return;
   if (!state.history || state.history.length === 0) { container.innerHTML = ''; return; }
-  const recent = state.history.slice(0, 4);
-  const html = recent.map(w => {
-    const date = new Date(w.date).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
-    const parts = [];
-    if (w.dayName) parts.push(w.dayName);
-    if (w.exercises && w.exercises.length > 0) parts.push(`${w.exercises.length} exercise${w.exercises.length !== 1 ? 's' : ''}`);
-    if (w.cardioEntries && w.cardioEntries.length > 0) parts.push(w.cardioEntries.map(c => c.name).join(', '));
-    else if (w.cardio) parts.push(w.cardio);
-    if (w.calories) parts.push(`🔥 ${w.calories} kcal`);
-    return `<div class="recent-card">
-      <div class="recent-date">${date}</div>
-      <div class="recent-detail">${parts.join(' · ') || '—'}</div>
-    </div>`;
-  }).join('');
+  const html = state.history.slice(0, 4).map((w, i) => workoutCardHTML(w, i)).join('');
   container.innerHTML = `<div class="recent-label">Recent workouts</div>${html}`;
 }
 
@@ -804,53 +840,7 @@ function renderHistory() {
     container.innerHTML = '<p class="empty-state">No workouts saved yet.<br>Complete your first session!</p>';
     return;
   }
-  container.innerHTML = state.history.map((w, i) => {
-    const date = new Date(w.date).toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-    let body = '';
-    let warmupStr = (w.warmup || '') + (w.warmupTime ? ` · ${w.warmupTime} min` : '');
-    if (w.warmupFields) {
-      const extras = Object.entries(w.warmupFields).filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`).join(' · ');
-      if (extras) warmupStr += ` · ${extras}`;
-    }
-    if (w.warmup) body += `<div class="history-meta">🔥 ${warmupStr}</div>`;
-    if (w.dayName) body += `<div class="history-day-name">${w.dayName}</div>`;
-    if (w.exercises && w.exercises.length > 0) {
-      body += w.exercises.map(ex => `
-        <div class="history-exercise">
-          <span>${ex.name}</span>
-          <span>${ex.sets ? ex.sets + ' sets · ' : ''}${ex.reps ? ex.reps + ' reps' : ''} ${ex.kg ? '· ' + ex.kg + ' kg' : ''}</span>
-        </div>`).join('');
-    }
-    if (w.cardioEntries && w.cardioEntries.length > 0) {
-      w.cardioEntries.forEach(c => {
-        let cardioStr = c.name + (c.time ? ` · ${c.time} min` : '');
-        if (c.fields) {
-          const extras = Object.entries(c.fields).filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`).join(' · ');
-          if (extras) cardioStr += ` · ${extras}`;
-        }
-        body += `<div class="history-meta">🏃 ${cardioStr}</div>`;
-      });
-    } else if (w.cardio) {
-      let cardioStr = w.cardio + (w.cardioTime ? ` · ${w.cardioTime} min` : '');
-      if (w.cardioFields) {
-        const extras = Object.entries(w.cardioFields).filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`).join(' · ');
-        if (extras) cardioStr += ` · ${extras}`;
-      }
-      body += `<div class="history-meta">🏃 ${cardioStr}</div>`;
-    }
-    if (w.calories) body += `<div class="history-calories">🔥 ${w.calories} kcal</div>`;
-    return `
-      <div class="history-card">
-        <div class="history-card-header">
-          <div class="history-date">${date}</div>
-          <div style="display:flex; gap:6px;">
-            <button class="btn-edit-sm" onclick="openWorkoutEdit(${i})">✏️ Edit</button>
-            <button class="btn-danger-sm" onclick="deleteWorkout(${i})">🗑 Delete</button>
-          </div>
-        </div>
-        ${body}
-      </div>`;
-  }).join('');
+  container.innerHTML = state.history.map((w, i) => workoutCardHTML(w, i)).join('');
 }
 
 async function deleteWorkout(index) {
