@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(git add style.css)",
+      "PowerShell(git add app.js style.css)"
+    ]
+  }
+}
