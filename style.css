@@ -188,11 +188,11 @@ body.girly .theme-btn:hover { background: #1a4f9e; border-color: #1a4f9e; }
 .modal-exercise-row.name-focused input:nth-child(4) { opacity: 0; pointer-events: none; padding: 8px 0; border-color: transparent; overflow: hidden; }
 
 /* EXERCISE LOG ROWS */
-.exercise-log-row { display: grid; grid-template-columns: 1fr auto auto auto auto; gap: 8px; align-items: center; margin-bottom: 8px; }
+.exercise-log-row { display: grid; grid-template-columns: 1fr 48px 48px 58px 34px; gap: 6px; align-items: center; margin-bottom: 8px; }
 .exercise-log-name { font-size: 14px; color: var(--text-primary); padding: 10px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.exercise-log-row input { text-align: center; }
+.exercise-log-row input { text-align: center; padding: 8px 4px !important; font-size: 14px; }
 .exercise-log-row select { background: var(--bg-input); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary); font-size: 14px; padding: 8px 6px; min-width: 0; width: 100%; }
-.exercise-log-header { display: grid; grid-template-columns: 1fr auto auto auto auto; gap: 8px; font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+.exercise-log-header { display: grid; grid-template-columns: 1fr 48px 48px 58px 34px; gap: 6px; font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
 .exercise-log-header span { font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; text-align: center; }
 .exercise-log-header span:first-child { text-align: left; }
 .exercise-log-sets { text-align: center; color: var(--text-secondary); font-size: 14px; }
