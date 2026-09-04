@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<meta name="theme-color" content="#1a1a1e" />
+<title>Dungeon Crawler</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  :root {
+    --bg-primary: #1a1a1e;
+    --bg-card: #2a2a2f;
+    --border: #3a3a42;
+    --text-primary: #ffffff;
+    --text-secondary: #9a9a9f;
+    --col-hi: #7eb8f7;
+    --accent: #1a3a6e;
+    --accent-hover: #1a4f9e;
+    --danger: #c0392b;
+    --good: #4caf7d;
+    --gold: #f0a500;
+  }
+  html, body {
+    height: 100%;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  #wrap { max-width: 560px; margin: 0 auto; padding: 12px 12px 24px; }
+
+  header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  header a { color: var(--text-secondary); text-decoration: none; font-size: 14px; }
+  header .title { font-weight: 700; font-size: 18px; color: var(--col-hi); }
+
+  #hud { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; font-size: 13px; }
+  .stat { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 4px 10px; white-space: nowrap; }
+  .stat b { color: var(--text-secondary); font-weight: 500; }
+
+  #hpbar-outer { flex: 1 1 140px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; position: relative; height: 26px; }
+  #hpbar-fill { height: 100%; background: linear-gradient(90deg, var(--danger), var(--good)); transition: width .15s; }
+  #hpbar-label { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; }
+
+  #board {
+    display: grid;
+    background: #000;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    width: max-content;
+    max-width: 100%;
+    margin: 0 auto 10px;
+    font-family: 'SF Mono', Menlo, Consolas, monospace;
+    line-height: 1;
+  }
+  .cell {
+    width: var(--cell-size, 18px); height: var(--cell-size, 18px);
+    display: flex; align-items: center; justify-content: center;
+    font-size: calc(var(--cell-size, 18px) * 0.78);
+  }
+  .c-hidden { background: #000; }
+  .c-seen { background: #141418; color: #4a4a52; }
+  .c-visible-floor { background: #202028; color: #55555f; }
+  .c-visible-wall { background: #26262e; color: #3a3a42; }
+  .c-player { background: #202028; color: var(--col-hi); font-weight: 700; }
+  .c-monster { background: #202028; color: #e05c5c; font-weight: 700; }
+  .c-item { background: #202028; color: var(--gold); font-weight: 700; }
+  .c-stairs { background: #202028; color: var(--good); font-weight: 700; }
+
+  #log {
+    background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 10px; font-size: 12.5px; color: var(--text-secondary);
+    height: 78px; overflow-y: auto; margin-bottom: 10px;
+  }
+  #log div:last-child { color: var(--text-primary); }
+
+  #controls { display: grid; grid-template-columns: repeat(3, 56px); grid-template-rows: repeat(2, 48px); gap: 6px; justify-content: center; margin: 0 auto; }
+  #controls button {
+    background: var(--bg-card); border: 1px solid var(--border); color: var(--text-primary);
+    border-radius: 10px; font-size: 18px; touch-action: manipulation;
+  }
+  #controls button:active { background: var(--accent); }
+  #btn-up { grid-column: 2; grid-row: 1; }
+  #btn-left { grid-column: 1; grid-row: 2; }
+  #btn-wait { grid-column: 2; grid-row: 2; font-size: 13px; }
+  #btn-right { grid-column: 3; grid-row: 2; }
+  #btn-down { grid-column: 2; grid-row: 3; }
+
+  #hint { text-align: center; font-size: 11.5px; color: var(--text-secondary); margin-top: 10px; }
+
+  #overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.75);
+    display: none; align-items: center; justify-content: center; padding: 20px; z-index: 20;
+  }
+  #overlay.show { display: flex; }
+  #overlay-box {
+    background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px;
+    padding: 2rem; max-width: 340px; width: 100%; text-align: center;
+  }
+  #overlay-box h2 { color: var(--danger); margin-bottom: 10px; }
+  #overlay-box p { color: var(--text-secondary); font-size: 14px; margin: 4px 0; }
+  #overlay-box button {
+    margin-top: 1.2rem; width: 100%; padding: 12px; border: none; border-radius: 10px;
+    background: var(--accent); color: #fff; font-size: 15px; font-weight: 600;
+  }
+  #overlay-box button:hover { background: var(--accent-hover); }
+</style>
+</head>
+<body>
+<div id="wrap">
+
+  <header>
+    <span class="title">🗡️ Dungeon Crawler</span>
+    <a href="index.html">← Workout Log</a>
+  </header>
+
+  <div id="hud">
+    <div id="hpbar-outer"><div id="hpbar-fill" style="width:100%"></div><div id="hpbar-label">30 / 30</div></div>
+    <div class="stat"><b>Lv</b> <span id="stat-level">1</span></div>
+    <div class="stat"><b>XP</b> <span id="stat-xp">0/20</span></div>
+    <div class="stat"><b>Depth</b> <span id="stat-depth">1</span></div>
+    <div class="stat"><b>💰</b> <span id="stat-gold">0</span></div>
+  </div>
+
+  <div id="board"></div>
+
+  <div id="log"></div>
+
+  <div id="controls">
+    <button id="btn-up">▲</button>
+    <button id="btn-left">◀</button>
+    <button id="btn-wait">●</button>
+    <button id="btn-right">▶</button>
+    <button id="btn-down">▼</button>
+  </div>
+
+  <p id="hint">Arrow keys / WASD to move, bump into monsters to attack, Space to wait. Find <span style="color:var(--good)">&gt;</span> to descend.</p>
+
+</div>
+
+<div id="overlay">
+  <div id="overlay-box">
+    <h2 id="overlay-title">You died</h2>
+    <p id="overlay-stats"></p>
+    <p id="overlay-best"></p>
+    <button id="btn-restart">Start new run</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var W = 28, H = 16;
+  var WALL = 0, FLOOR = 1;
+  var VIEW_RADIUS = 6;
+  var HIGH_SCORE_KEY = "roguelike-best-depth";
+
+  var grid, rooms, player, monsters, items, stairs, depth, messages, gameOver, turnBusy;
+
+  var MONSTER_TYPES = [
+    { glyph: "r", name: "rat",     hp: 5,  atk: 2, xp: 6,  minDepth: 1 },
+    { glyph: "g", name: "goblin",  hp: 8,  atk: 3, xp: 10, minDepth: 1 },
+    { glyph: "s", name: "spider",  hp: 10, atk: 4, xp: 14, minDepth: 2 },
+    { glyph: "o", name: "orc",     hp: 16, atk: 5, xp: 20, minDepth: 3 },
+    { glyph: "T", name: "troll",   hp: 26, atk: 7, xp: 32, minDepth: 5 }
+  ];
+
+  function rnd(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+  function chance(p) { return Math.random() < p; }
+
+  function newGrid() {
+    var g = [];
+    for (var y = 0; y < H; y++) {
+      var row = [];
+      for (var x = 0; x < W; x++) row.push({ type: WALL, discovered: false, visible: false });
+      g.push(row);
+    }
+    return g;
+  }
+
+  function carveRoom(r) {
+    for (var y = r.y; y < r.y + r.h; y++)
+      for (var x = r.x; x < r.x + r.w; x++)
+        grid[y][x].type = FLOOR;
+  }
+
+  function carveCorridor(x1, y1, x2, y2) {
+    var x = x1, y = y1;
+    if (chance(0.5)) {
+      while (x !== x2) { grid[y][x].type = FLOOR; x += x2 > x ? 1 : -1; }
+      while (y !== y2) { grid[y][x].type = FLOOR; y += y2 > y ? 1 : -1; }
+    } else {
+      while (y !== y2) { grid[y][x].type = FLOOR; y += y2 > y ? 1 : -1; }
+      while (x !== x2) { grid[y][x].type = FLOOR; x += x2 > x ? 1 : -1; }
+    }
+    grid[y2][x2].type = FLOOR;
+  }
+
+  function roomsOverlap(a, b) {
+    return a.x - 1 < b.x + b.w + 1 && a.x + a.w + 1 > b.x - 1 &&
+           a.y - 1 < b.y + b.h + 1 && a.y + a.h + 1 > b.y - 1;
+  }
+
+  function generateLevel(d) {
+    grid = newGrid();
+    rooms = [];
+    var attempts = 0, maxRooms = 6 + Math.min(d, 4);
+    while (rooms.length < maxRooms && attempts < 300) {
+      attempts++;
+      var w = rnd(4, 7), h = rnd(3, 5);
+      var x = rnd(1, W - w - 2), y = rnd(1, H - h - 2);
+      var room = { x: x, y: y, w: w, h: h };
+      var ok = true;
+      for (var i = 0; i < rooms.length; i++) if (roomsOverlap(room, rooms[i])) { ok = false; break; }
+      if (!ok) continue;
+      carveRoom(room);
+      if (rooms.length > 0) {
+        var prev = rooms[rooms.length - 1];
+        carveCorridor(Math.floor(prev.x + prev.w / 2), Math.floor(prev.y + prev.h / 2),
+                       Math.floor(room.x + room.w / 2), Math.floor(room.y + room.h / 2));
+      }
+      rooms.push(room);
+    }
+
+    var start = rooms[0];
+    player.x = Math.floor(start.x + start.w / 2);
+    player.y = Math.floor(start.y + start.h / 2);
+
+    var last = rooms[rooms.length - 1];
+    stairs = { x: Math.floor(last.x + last.w / 2), y: Math.floor(last.y + last.h / 2) };
+
+    monsters = [];
+    items = [];
+    var pool = MONSTER_TYPES.filter(function (m) { return m.minDepth <= d; });
+    var numMonsters = 3 + d;
+    for (var mi = 0; mi < numMonsters; mi++) {
+      var room = rooms[rnd(1, rooms.length - 1)];
+      var mx = rnd(room.x, room.x + room.w - 1), my = rnd(room.y, room.y + room.h - 1);
+      if (mx === player.x && my === player.y) continue;
+      if (occupied(mx, my)) continue;
+      var t = pool[rnd(0, pool.length - 1)];
+      var scale = 1 + (d - 1) * 0.15;
+      monsters.push({
+        x: mx, y: my, glyph: t.glyph, name: t.name,
+        hp: Math.round(t.hp * scale), maxHp: Math.round(t.hp * scale),
+        atk: Math.round(t.atk * scale), xp: t.xp, aggro: false
+      });
+    }
+
+    var numItems = 2 + rnd(0, 2);
+    for (var ii = 0; ii < numItems; ii++) {
+      var room2 = rooms[rnd(1, rooms.length - 1)];
+      var ix = rnd(room2.x, room2.x + room2.w - 1), iy = rnd(room2.y, room2.y + room2.h - 1);
+      if ((ix === player.x && iy === player.y) || occupied(ix, iy) || itemAt(ix, iy)) continue;
+      var kind = chance(0.6) ? "potion" : "gold";
+      items.push({ x: ix, y: iy, kind: kind, amount: kind === "gold" ? rnd(3, 6) * d : 0 });
+    }
+  }
+
+  function occupied(x, y) {
+    for (var i = 0; i < monsters.length; i++) if (monsters[i].x === x && monsters[i].y === y) return monsters[i];
+    return null;
+  }
+  function itemAt(x, y) {
+    for (var i = 0; i < items.length; i++) if (items[i].x === x && items[i].y === y) return items[i];
+    return null;
+  }
+  function inBounds(x, y) { return x >= 0 && y >= 0 && x < W && y < H; }
+  function isWall(x, y) { return !inBounds(x, y) || grid[y][x].type === WALL; }
+
+  function bresenham(x0, y0, x1, y1) {
+    var pts = [];
+    var dx = Math.abs(x1 - x0), dy = Math.abs(y1 - y0);
+    var sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+    var err = dx - dy;
+    while (true) {
+      pts.push({ x: x0, y: y0 });
+      if (x0 === x1 && y0 === y1) break;
+      var e2 = 2 * err;
+      if (e2 > -dy) { err -= dy; x0 += sx; }
+      if (e2 < dx) { err += dx; y0 += sy; }
+    }
+    return pts;
+  }
+
+  function hasLOS(x0, y0, x1, y1) {
+    var pts = bresenham(x0, y0, x1, y1);
+    for (var i = 1; i < pts.length - 1; i++) if (grid[pts[i].y][pts[i].x].type === WALL) return false;
+    return true;
+  }
+
+  function computeFOV() {
+    for (var y = 0; y < H; y++) for (var x = 0; x < W; x++) grid[y][x].visible = false;
+    var px = player.x, py = player.y;
+    for (var y2 = py - VIEW_RADIUS; y2 <= py + VIEW_RADIUS; y2++) {
+      for (var x2 = px - VIEW_RADIUS; x2 <= px + VIEW_RADIUS; x2++) {
+        if (!inBounds(x2, y2)) continue;
+        var dist = Math.hypot(x2 - px, y2 - py);
+        if (dist > VIEW_RADIUS) continue;
+        if (hasLOS(px, py, x2, y2)) { grid[y2][x2].visible = true; grid[y2][x2].discovered = true; }
+      }
+    }
+  }
+
+  function log(msg) {
+    messages.push(msg);
+    if (messages.length > 50) messages.shift();
+    var el = document.getElementById("log");
+    el.innerHTML = messages.slice(-30).map(function (m) { return "<div>" + m + "</div>"; }).join("");
+    el.scrollTop = el.scrollHeight;
+  }
+
+  function xpNeeded(level) { return 20 + level * 15; }
+
+  function gainXp(amount) {
+    player.xp += amount;
+    while (player.xp >= xpNeeded(player.level)) {
+      player.xp -= xpNeeded(player.level);
+      player.level++;
+      player.maxHp += rnd(5, 8);
+      player.atk += 1;
+      player.hp = player.maxHp;
+      log("✨ Level up! You are now level " + player.level + ".");
+    }
+  }
+
+  function playerDef() { return Math.floor(player.level / 3); }
+
+  function attack(attackerAtk, defenderDef) {
+    return Math.max(1, attackerAtk + rnd(0, 2) - defenderDef);
+  }
+
+  function tryMovePlayer(dx, dy) {
+    if (gameOver || turnBusy) return;
+    var nx = player.x + dx, ny = player.y + dy;
+    if (!inBounds(nx, ny)) return;
+
+    var m = occupied(nx, ny);
+    if (m) {
+      var dmg = attack(player.atk, 0);
+      m.hp -= dmg;
+      log("You hit the " + m.name + " for " + dmg + ".");
+      if (m.hp <= 0) {
+        log("💀 The " + m.name + " dies.");
+        monsters.splice(monsters.indexOf(m), 1);
+        gainXp(m.xp);
+      }
+      monsterTurn();
+      render();
+      return;
+    }
+
+    if (isWall(nx, ny)) return;
+
+    player.x = nx; player.y = ny;
+
+    var it = itemAt(nx, ny);
+    if (it) {
+      if (it.kind === "potion") {
+        var heal = Math.min(player.maxHp - player.hp, rnd(8, 15));
+        player.hp += heal;
+        log("🧪 You drink a potion and heal " + heal + " HP.");
+      } else {
+        player.gold += it.amount;
+        log("💰 You pick up " + it.amount + " gold.");
+      }
+      items.splice(items.indexOf(it), 1);
+    }
+
+    if (nx === stairs.x && ny === stairs.y) {
+      depth++;
+      log("⬇️ You descend to depth " + depth + ".");
+      generateLevel(depth);
+      computeFOV();
+      saveHighScore();
+      render();
+      return;
+    }
+
+    monsterTurn();
+    render();
+  }
+
+  function monsterTurn() {
+    if (gameOver) return;
+    for (var i = monsters.length - 1; i >= 0; i--) {
+      var m = monsters[i];
+      var dist = Math.hypot(m.x - player.x, m.y - player.y);
+      if (!m.aggro && dist <= VIEW_RADIUS && hasLOS(m.x, m.y, player.x, player.y)) m.aggro = true;
+      if (!m.aggro) continue;
+
+      if (Math.abs(m.x - player.x) + Math.abs(m.y - player.y) === 1) {
+        var dmg = attack(m.atk, playerDef());
+        player.hp -= dmg;
+        log("The " + m.name + " hits you for " + dmg + ".");
+        if (player.hp <= 0) { player.hp = 0; endGame(); return; }
+        continue;
+      }
+
+      var dx = player.x - m.x, dy = player.y - m.y;
+      var stepX = dx === 0 ? 0 : (dx > 0 ? 1 : -1);
+      var stepY = dy === 0 ? 0 : (dy > 0 ? 1 : -1);
+      var moves = [];
+      if (Math.abs(dx) >= Math.abs(dy)) { moves.push([stepX, 0]); moves.push([0, stepY]); }
+      else { moves.push([0, stepY]); moves.push([stepX, 0]); }
+
+      for (var mi = 0; mi < moves.length; mi++) {
+        var nx = m.x + moves[mi][0], ny = m.y + moves[mi][1];
+        if (moves[mi][0] === 0 && moves[mi][1] === 0) continue;
+        if (isWall(nx, ny)) continue;
+        if (nx === player.x && ny === player.y) continue;
+        if (occupied(nx, ny)) continue;
+        m.x = nx; m.y = ny;
+        break;
+      }
+    }
+  }
+
+  function endGame() {
+    gameOver = true;
+    log("☠️ You died at depth " + depth + ".");
+    document.getElementById("overlay-title").textContent = "You died";
+    document.getElementById("overlay-stats").textContent =
+      "Depth reached: " + depth + " · Level " + player.level + " · " + player.gold + " gold";
+    var best = getHighScore();
+    document.getElementById("overlay-best").textContent = "Best depth so far: " + best;
+    document.getElementById("overlay").classList.add("show");
+  }
+
+  function getHighScore() {
+    return parseInt(localStorage.getItem(HIGH_SCORE_KEY) || "1", 10);
+  }
+  function saveHighScore() {
+    var best = getHighScore();
+    if (depth > best) localStorage.setItem(HIGH_SCORE_KEY, String(depth));
+  }
+
+  function glyphClassAt(x, y, cell) {
+    if (!cell.visible) return null;
+    if (player.x === x && player.y === y) return { cls: "c-player", ch: "@" };
+    var m = occupied(x, y);
+    if (m) return { cls: "c-monster", ch: m.glyph };
+    var it = itemAt(x, y);
+    if (it) return { cls: "c-item", ch: it.kind === "potion" ? "!" : "$" };
+    if (stairs.x === x && stairs.y === y) return { cls: "c-stairs", ch: ">" };
+    return null;
+  }
+
+  function updateBoardSize() {
+    var wrap = document.getElementById("wrap");
+    var available = wrap.clientWidth - 4;
+    var cell = Math.max(10, Math.min(18, Math.floor(available / W)));
+    document.getElementById("board").style.setProperty("--cell-size", cell + "px");
+  }
+  window.addEventListener("resize", function () { updateBoardSize(); });
+
+  function render() {
+    updateBoardSize();
+    var board = document.getElementById("board");
+    board.style.gridTemplateColumns = "repeat(" + W + ", var(--cell-size, 18px))";
+    var html = "";
+    for (var y = 0; y < H; y++) {
+      for (var x = 0; x < W; x++) {
+        var cell = grid[y][x];
+        if (!cell.discovered) { html += '<div class="cell c-hidden"></div>'; continue; }
+        var top = glyphClassAt(x, y, cell);
+        if (top) { html += '<div class="cell ' + top.cls + '">' + top.ch + "</div>"; continue; }
+        if (cell.visible) {
+          html += cell.type === WALL
+            ? '<div class="cell c-visible-wall">#</div>'
+            : '<div class="cell c-visible-floor">.</div>';
+        } else {
+          html += cell.type === WALL
+            ? '<div class="cell c-seen">#</div>'
+            : '<div class="cell c-seen">.</div>';
+        }
+      }
+    }
+    board.innerHTML = html;
+
+    document.getElementById("stat-level").textContent = player.level;
+    document.getElementById("stat-xp").textContent = player.xp + "/" + xpNeeded(player.level);
+    document.getElementById("stat-depth").textContent = depth;
+    document.getElementById("stat-gold").textContent = player.gold;
+    var pct = Math.max(0, Math.round((player.hp / player.maxHp) * 100));
+    document.getElementById("hpbar-fill").style.width = pct + "%";
+    document.getElementById("hpbar-label").textContent = player.hp + " / " + player.maxHp;
+  }
+
+  function startGame() {
+    player = { x: 0, y: 0, hp: 30, maxHp: 30, atk: 4, level: 1, xp: 0, gold: 0 };
+    depth = 1;
+    messages = [];
+    gameOver = false;
+    document.getElementById("overlay").classList.remove("show");
+    document.getElementById("log").innerHTML = "";
+    generateLevel(depth);
+    computeFOV();
+    log("You descend into the dungeon. Depth 1.");
+    render();
+  }
+
+  document.addEventListener("keydown", function (e) {
+    var handled = true;
+    switch (e.key) {
+      case "ArrowUp": case "w": case "W": tryMovePlayer(0, -1); break;
+      case "ArrowDown": case "s": case "S": tryMovePlayer(0, 1); break;
+      case "ArrowLeft": case "a": case "A": tryMovePlayer(-1, 0); break;
+      case "ArrowRight": case "d": case "D": tryMovePlayer(1, 0); break;
+      case " ": monsterTurn(); render(); break;
+      default: handled = false;
+    }
+    if (handled) e.preventDefault();
+  });
+
+  document.getElementById("btn-up").addEventListener("click", function () { tryMovePlayer(0, -1); });
+  document.getElementById("btn-down").addEventListener("click", function () { tryMovePlayer(0, 1); });
+  document.getElementById("btn-left").addEventListener("click", function () { tryMovePlayer(-1, 0); });
+  document.getElementById("btn-right").addEventListener("click", function () { tryMovePlayer(1, 0); });
+  document.getElementById("btn-wait").addEventListener("click", function () { monsterTurn(); render(); });
+  document.getElementById("btn-restart").addEventListener("click", startGame);
+
+  startGame();
+})();
+</script>
+</body>
+</html>
