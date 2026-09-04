@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <meta name="theme-color" content="#1a1a1e" />
-<title>Dungeon Crawler</title>
+<title>Gains Dungeon</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   :root {
@@ -68,7 +68,7 @@
   #log {
     background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
     padding: 8px 10px; font-size: 12.5px; color: var(--text-secondary);
-    height: 78px; overflow-y: auto; margin-bottom: 10px;
+    height: 92px; overflow-y: auto; margin-bottom: 10px;
   }
   #log div:last-child { color: var(--text-primary); }
 
@@ -86,29 +86,33 @@
 
   #hint { text-align: center; font-size: 11.5px; color: var(--text-secondary); margin-top: 10px; }
 
-  #overlay {
+  .modal-backdrop {
     position: fixed; inset: 0; background: rgba(0,0,0,0.75);
     display: none; align-items: center; justify-content: center; padding: 20px; z-index: 20;
   }
-  #overlay.show { display: flex; }
-  #overlay-box {
+  .modal-backdrop.show { display: flex; }
+  .modal-box {
     background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px;
     padding: 2rem; max-width: 340px; width: 100%; text-align: center;
   }
-  #overlay-box h2 { color: var(--danger); margin-bottom: 10px; }
-  #overlay-box p { color: var(--text-secondary); font-size: 14px; margin: 4px 0; }
-  #overlay-box button {
+  .modal-box h2 { color: var(--col-hi); margin-bottom: 10px; }
+  .modal-box h2.danger { color: var(--danger); }
+  .modal-box p { color: var(--text-secondary); font-size: 14px; margin: 4px 0; }
+  .modal-box button {
     margin-top: 1.2rem; width: 100%; padding: 12px; border: none; border-radius: 10px;
-    background: var(--accent); color: #fff; font-size: 15px; font-weight: 600;
+    background: var(--accent); color: #fff; font-size: 15px; font-weight: 600; cursor: pointer;
   }
-  #overlay-box button:hover { background: var(--accent-hover); }
+  .modal-box button:hover { background: var(--accent-hover); }
+  .modal-box button.btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-primary); }
+  .modal-box button.btn-outline:hover { background: rgba(255,255,255,0.05); }
+  .modal-box a { text-decoration: none; }
 </style>
 </head>
 <body>
 <div id="wrap">
 
   <header>
-    <span class="title">🗡️ Dungeon Crawler</span>
+    <span class="title">🏋️ Gains Dungeon</span>
     <a href="index.html">← Workout Log</a>
   </header>
 
@@ -116,8 +120,8 @@
     <div id="hpbar-outer"><div id="hpbar-fill" style="width:100%"></div><div id="hpbar-label">30 / 30</div></div>
     <div class="stat"><b>Lv</b> <span id="stat-level">1</span></div>
     <div class="stat"><b>XP</b> <span id="stat-xp">0/20</span></div>
-    <div class="stat"><b>Depth</b> <span id="stat-depth">1</span></div>
-    <div class="stat"><b>💰</b> <span id="stat-gold">0</span></div>
+    <div class="stat"><b>Week</b> <span id="stat-depth">1</span></div>
+    <div class="stat"><b>💰 Gains</b> <span id="stat-gold">0</span></div>
   </div>
 
   <div id="board"></div>
@@ -132,40 +136,93 @@
     <button id="btn-down">▼</button>
   </div>
 
-  <p id="hint">Arrow keys / WASD to move, bump into monsters to attack, Space to wait. Find <span style="color:var(--good)">&gt;</span> to descend.</p>
+  <p id="hint">Arrow keys / WASD to move, bump into monsters to attack, Space to wait. Find <span style="color:var(--good)">&gt;</span> for a new PR and the next training week.</p>
 
 </div>
 
-<div id="overlay">
-  <div id="overlay-box">
-    <h2 id="overlay-title">You died</h2>
+<div id="gate-overlay" class="modal-backdrop show">
+  <div class="modal-box">
+    <h2 id="gate-title">⚔️ Summoning your hero…</h2>
+    <p id="gate-text">Checking your Workout Log account…</p>
+    <div id="gate-actions" style="display:none;">
+      <a href="index.html"><button>Sign in on Workout Log</button></a>
+      <button id="btn-guest" class="btn-outline">Play as Guest</button>
+    </div>
+  </div>
+</div>
+
+<div id="overlay" class="modal-backdrop">
+  <div class="modal-box">
+    <h2 id="overlay-title" class="danger">You collapsed</h2>
     <p id="overlay-stats"></p>
     <p id="overlay-best"></p>
     <button id="btn-restart">Start new run</button>
   </div>
 </div>
 
-<script>
+<script type="module">
+import { onAuthChange, loadUserData } from "./firebase.js";
+
 (function () {
   "use strict";
 
   var W = 28, H = 16;
   var WALL = 0, FLOOR = 1;
   var VIEW_RADIUS = 6;
-  var HIGH_SCORE_KEY = "roguelike-best-depth";
+  var HIGH_SCORE_KEY = "gains-dungeon-best-week";
 
-  var grid, rooms, player, monsters, items, stairs, depth, messages, gameOver, turnBusy;
+  var grid, rooms, player, monsters, items, stairs, depth, messages, gameOver, turnBusy, reviveAvailable;
+  gameOver = true; // locked until the hero is ready
+
+  var heroBonus = { workouts: 0, level: 0, hp: 0, atk: 0, gold: 0, pumped: false, streak: 0 };
 
   var MONSTER_TYPES = [
-    { glyph: "r", name: "rat",     hp: 5,  atk: 2, xp: 6,  minDepth: 1 },
-    { glyph: "g", name: "goblin",  hp: 8,  atk: 3, xp: 10, minDepth: 1 },
-    { glyph: "s", name: "spider",  hp: 10, atk: 4, xp: 14, minDepth: 2 },
-    { glyph: "o", name: "orc",     hp: 16, atk: 5, xp: 20, minDepth: 3 },
-    { glyph: "T", name: "troll",   hp: 26, atk: 7, xp: 32, minDepth: 5 }
+    { glyph: "r", name: "skipped-set sprite",  hp: 5,  atk: 2, xp: 6,  minDepth: 1 },
+    { glyph: "g", name: "junk food goblin",    hp: 8,  atk: 3, xp: 10, minDepth: 1 },
+    { glyph: "s", name: "procrastination spider", hp: 10, atk: 4, xp: 14, minDepth: 2 },
+    { glyph: "o", name: "couch potato orc",    hp: 16, atk: 5, xp: 20, minDepth: 3 },
+    { glyph: "T", name: "rest day troll",      hp: 26, atk: 7, xp: 32, minDepth: 5 }
   ];
 
   function rnd(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
   function chance(p) { return Math.random() < p; }
+  function num(v) { var n = parseFloat(v); return isNaN(n) ? 0 : n; }
+
+  // ---- HERO STATS FROM REAL WORKOUT HISTORY ----
+  function computeHeroBonus(history) {
+    history = history || [];
+    var totalSets = 0, totalVolume = 0, totalCardioMin = 0, totalCalories = 0;
+    var daySet = {};
+
+    history.forEach(function (w) {
+      (w.exercises || []).forEach(function (e) {
+        var sets = num(e.sets), reps = num(e.reps), kg = num(e.kg);
+        totalSets += sets;
+        totalVolume += sets * reps * Math.max(kg, 1);
+      });
+      (w.cardioEntries || []).forEach(function (c) { totalCardioMin += num(c.time); });
+      if (w.warmupTime) totalCardioMin += num(w.warmupTime);
+      totalCalories += num(w.calories);
+      if (w.date) {
+        var d = new Date(w.date);
+        if (!isNaN(d.getTime())) daySet[d.toDateString()] = true;
+      }
+    });
+
+    var streak = 0;
+    var cursor = new Date();
+    while (daySet[cursor.toDateString()]) { streak++; cursor.setDate(cursor.getDate() - 1); }
+
+    return {
+      workouts: history.length,
+      level: Math.min(Math.floor(history.length / 3), 10),
+      hp: Math.min(history.length * 1 + Math.floor(totalCardioMin / 15), 120),
+      atk: Math.min(Math.floor(totalVolume / 1500) + Math.floor(totalSets / 25), 20),
+      gold: Math.min(Math.floor(totalCalories / 40), 500),
+      pumped: !!daySet[new Date().toDateString()],
+      streak: streak
+    };
+  }
 
   function newGrid() {
     var g = [];
@@ -251,7 +308,7 @@
       var room2 = rooms[rnd(1, rooms.length - 1)];
       var ix = rnd(room2.x, room2.x + room2.w - 1), iy = rnd(room2.y, room2.y + room2.h - 1);
       if ((ix === player.x && iy === player.y) || occupied(ix, iy) || itemAt(ix, iy)) continue;
-      var kind = chance(0.6) ? "potion" : "gold";
+      var kind = chance(0.6) ? "shake" : "gold";
       items.push({ x: ix, y: iy, kind: kind, amount: kind === "gold" ? rnd(3, 6) * d : 0 });
     }
   }
@@ -355,20 +412,20 @@
 
     var it = itemAt(nx, ny);
     if (it) {
-      if (it.kind === "potion") {
+      if (it.kind === "shake") {
         var heal = Math.min(player.maxHp - player.hp, rnd(8, 15));
         player.hp += heal;
-        log("🧪 You drink a potion and heal " + heal + " HP.");
+        log("🥤 You down a protein shake and heal " + heal + " HP.");
       } else {
         player.gold += it.amount;
-        log("💰 You pick up " + it.amount + " gold.");
+        log("💰 You bank " + it.amount + " gains.");
       }
       items.splice(items.indexOf(it), 1);
     }
 
     if (nx === stairs.x && ny === stairs.y) {
       depth++;
-      log("⬇️ You descend to depth " + depth + ".");
+      log("🏆 New PR! You advance to week " + depth + " of training.");
       generateLevel(depth);
       computeFOV();
       saveHighScore();
@@ -392,7 +449,15 @@
         var dmg = attack(m.atk, playerDef());
         player.hp -= dmg;
         log("The " + m.name + " hits you for " + dmg + ".");
-        if (player.hp <= 0) { player.hp = 0; endGame(); return; }
+        if (player.hp <= 0) {
+          if (reviveAvailable) {
+            reviveAvailable = false;
+            player.hp = Math.max(1, Math.floor(player.maxHp / 2));
+            log("🛡 Second Wind! Your streak saves you — back up with " + player.hp + " HP.");
+          } else {
+            player.hp = 0; endGame(); return;
+          }
+        }
         continue;
       }
 
@@ -417,12 +482,12 @@
 
   function endGame() {
     gameOver = true;
-    log("☠️ You died at depth " + depth + ".");
-    document.getElementById("overlay-title").textContent = "You died";
+    log("☠️ You collapsed in week " + depth + ".");
+    document.getElementById("overlay-title").textContent = "You collapsed";
     document.getElementById("overlay-stats").textContent =
-      "Depth reached: " + depth + " · Level " + player.level + " · " + player.gold + " gold";
+      "Weeks survived: " + depth + " · Level " + player.level + " · " + player.gold + " gains";
     var best = getHighScore();
-    document.getElementById("overlay-best").textContent = "Best depth so far: " + best;
+    document.getElementById("overlay-best").textContent = "Personal record: week " + best;
     document.getElementById("overlay").classList.add("show");
   }
 
@@ -440,7 +505,7 @@
     var m = occupied(x, y);
     if (m) return { cls: "c-monster", ch: m.glyph };
     var it = itemAt(x, y);
-    if (it) return { cls: "c-item", ch: it.kind === "potion" ? "!" : "$" };
+    if (it) return { cls: "c-item", ch: it.kind === "shake" ? "!" : "$" };
     if (stairs.x === x && stairs.y === y) return { cls: "c-stairs", ch: ">" };
     return null;
   }
@@ -487,15 +552,36 @@
   }
 
   function startGame() {
-    player = { x: 0, y: 0, hp: 30, maxHp: 30, atk: 4, level: 1, xp: 0, gold: 0 };
+    var baseHp = 30 + heroBonus.hp;
+    var baseAtk = 4 + heroBonus.atk;
+    player = {
+      x: 0, y: 0,
+      maxHp: baseHp,
+      hp: baseHp,
+      atk: heroBonus.pumped ? Math.round(baseAtk * 1.25) : baseAtk,
+      level: 1 + heroBonus.level,
+      xp: 0,
+      gold: heroBonus.gold
+    };
+    reviveAvailable = heroBonus.streak >= 3;
     depth = 1;
     messages = [];
     gameOver = false;
     document.getElementById("overlay").classList.remove("show");
+    document.getElementById("gate-overlay").classList.remove("show");
     document.getElementById("log").innerHTML = "";
     generateLevel(depth);
     computeFOV();
-    log("You descend into the dungeon. Depth 1.");
+
+    if (heroBonus.workouts > 0) {
+      log("🏋️ Your hero rises, forged from " + heroBonus.workouts + " logged workout" + (heroBonus.workouts === 1 ? "" : "s") + ".");
+      log("Lv " + player.level + " · " + player.maxHp + " HP · " + player.atk + " ATK · " + player.gold + " gains to start.");
+      if (heroBonus.pumped) log("🔥 Pumped! You trained today — attack is up for this run.");
+      if (reviveAvailable) log("🛡 " + heroBonus.streak + "-day streak grants a Second Wind if you fall.");
+    } else {
+      log("🆕 No workouts logged yet — your hero starts fresh. Log a real workout to power up!");
+    }
+    log("You descend into the Gains Dungeon. Week 1.");
     render();
   }
 
@@ -519,7 +605,35 @@
   document.getElementById("btn-wait").addEventListener("click", function () { monsterTurn(); render(); });
   document.getElementById("btn-restart").addEventListener("click", startGame);
 
-  startGame();
+  // ---- AUTH GATE: pull the hero's power from the real Workout Log ----
+  var heroReady = false;
+  document.getElementById("btn-guest").addEventListener("click", function () {
+    if (heroReady) return;
+    heroReady = true;
+    heroBonus = { workouts: 0, level: 0, hp: 0, atk: 0, gold: 0, pumped: false, streak: 0 };
+    startGame();
+  });
+
+  onAuthChange(function (user) {
+    if (heroReady) return;
+    if (!user) {
+      document.getElementById("gate-title").textContent = "🔒 Not signed in";
+      document.getElementById("gate-text").textContent = "Sign in on your Workout Log to power up your hero with real training data, or jump in as a guest.";
+      document.getElementById("gate-actions").style.display = "block";
+      return;
+    }
+    loadUserData(user.uid).then(function (data) {
+      if (heroReady) return;
+      heroReady = true;
+      heroBonus = computeHeroBonus(data.history);
+      startGame();
+    }).catch(function () {
+      if (heroReady) return;
+      document.getElementById("gate-title").textContent = "⚠️ Couldn't load your hero";
+      document.getElementById("gate-text").textContent = "We couldn't reach your Workout Log data. You can still play as a guest.";
+      document.getElementById("gate-actions").style.display = "block";
+    });
+  });
 })();
 </script>
 </body>
