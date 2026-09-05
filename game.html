@@ -147,16 +147,6 @@
   .modal-box button.btn-outline:hover { background: rgba(255,255,255,0.05); }
   .modal-box a { text-decoration: none; }
 
-  .modal-box button.talent-option {
-    margin-top: 0; width: 100%; text-align: left; background: var(--bg-primary);
-    border: 1px solid var(--border); display: flex; flex-direction: column; gap: 2px;
-  }
-  .modal-box button.talent-option:hover { background: var(--col-hi-tint); border-color: var(--col-hi); }
-  .talent-option .t-cat { font-size: 10.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--col-hi); font-weight: 700; }
-  .talent-option .t-name { font-size: 15px; font-weight: 700; }
-  .talent-option .t-desc { font-size: 12.5px; color: var(--text-secondary); font-weight: 400; }
-  #talent-options { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
-
   .shop-row {
     display: flex; align-items: center; justify-content: space-between; gap: 10px;
     background: var(--bg-primary); border: 1px solid var(--border); border-radius: 10px;
@@ -216,6 +206,7 @@
   <div id="utility-row">
     <button id="btn-auto">🤖 Auto</button>
     <button id="btn-bag">🎒 Bag <span id="bag-count">(0/6)</span></button>
+    <button id="btn-points">📈 Points <span id="points-count">(0)</span></button>
   </div>
 
   <p id="hint">Arrow keys / WASD to move, bump into monsters to attack, Space to wait. 🔰 Shield absorbs hits before HP and refills on level up. Every 5th week guards a boss — auto-explore won't fight it for you. Find <span style="color:var(--good)">&gt;</span> to advance.</p>
@@ -275,12 +266,12 @@
   </div>
 </div>
 
-<div id="talent-overlay" class="modal-backdrop">
-  <div class="modal-box" style="max-width:380px;">
-    <h2>🌟 Choose a Talent</h2>
-    <p>Level up! Pick one to keep for the rest of this run.</p>
-    <div id="talent-options"></div>
-    <p id="talent-auto-note" style="display:none;font-size:12px;color:var(--text-secondary);margin-top:8px;"></p>
+<div id="points-overlay" class="modal-backdrop">
+  <div class="modal-box" style="max-width:400px;">
+    <h2>📈 Training Points</h2>
+    <p id="points-available"></p>
+    <div id="points-list"></div>
+    <button id="btn-points-close" class="btn-outline">Close</button>
   </div>
 </div>
 
@@ -319,23 +310,19 @@ import { onAuthChange, loadUserData } from "./firebase.js";
   var EQUIPPED_KEY = "gains-dungeon-equipped";
 
   var grid, rooms, player, monsters, items, stairs, depth, messages, gameOver, turnBusy, reviveAvailable;
-  var currentArena = null, currentArenaTheme = null;
+  var currentArena = null, currentArenaTheme = null, arenaEntranceAnchor = null;
   gameOver = true; // locked until the hero is ready
 
   var heroBonus = { workouts: 0, level: 0, hp: 0, atk: 0, gold: 0, pumped: false, streak: 0 };
 
   var essence = parseInt(localStorage.getItem(ESSENCE_KEY) || "0", 10);
   var runStartEssence = 0;
-  var pendingTalents = 0;
-  var talentContinuation = null;
+  var statPoints = 0;
+  var statPointsSpent = {};
   var stairsLocked = false;
   var runBag = [];
   var runLoot = [];
   var autoMode = false;
-  var talentAutoPick = false;
-  var TALENT_AUTO_PICK_MS = 6000;
-  var talentAutoPickTimeout = null;
-  var talentAutoPickInterval = null;
 
   var EQUIP_SLOTS = ["weapon", "offhand", "armor", "ring", "trinket"];
   var SLOT_LABELS = { weapon: "🗡️ Weapon", offhand: "🛡️ Off-hand", armor: "🎽 Armor", ring: "💍 Ring", trinket: "🔮 Trinket" };
@@ -392,16 +379,16 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     { id: "fortune",   name: "Fortune",    icon: "🍀", desc: "+8% gold found per level",  max: 10, perLevel: 8,  baseCost: 12 }
   ];
 
-  var TALENTS = [
-    { id: "iron_muscles", cat: "Warrior",  name: "Iron Muscles",    icon: "💪", desc: "+3 ATK",               apply: function (p) { p.atk += 3; } },
-    { id: "adrenaline",   cat: "Warrior",  name: "Adrenaline",      icon: "⚡", desc: "+8% crit chance",       apply: function (p) { p.crit += 8; } },
-    { id: "berserk",      cat: "Warrior",  name: "Berserker Rage",  icon: "🔥", desc: "+15% ATK, -1 DEF",      apply: function (p) { p.atk = Math.round(p.atk * 1.15); p.def = Math.max(0, p.def - 1); } },
-    { id: "thick_skin",   cat: "Guardian", name: "Thick Skin",      icon: "🪨", desc: "+2 DEF",                apply: function (p) { p.def += 2; } },
-    { id: "reinforced",   cat: "Guardian", name: "Reinforced Ward", icon: "🔰", desc: "+20 max shield",        apply: function (p) { p.shieldMax += 20; p.shield = p.shieldMax; } },
-    { id: "marathoner",   cat: "Guardian", name: "Marathoner",      icon: "🫀", desc: "+20 max HP",            apply: function (p) { p.maxHp += 20; p.hp += 20; } },
-    { id: "quick_hands",  cat: "Thief",    name: "Quick Hands",     icon: "🤑", desc: "+15% gold found",       apply: function (p) { p.goldFind += 15; } },
-    { id: "vampiric",     cat: "Thief",    name: "Vampiric Grip",   icon: "🩸", desc: "+8% lifesteal",         apply: function (p) { p.lifesteal += 8; } },
-    { id: "lucky",        cat: "Thief",    name: "Lucky Strikes",   icon: "🍀", desc: "+10% crit chance",      apply: function (p) { p.crit += 10; } }
+  // Per-run stat points: earned on level-up, spent by the player whenever
+  // they like (no forced pause), at a much lower rate than the old talents.
+  var STAT_POINTS = [
+    { id: "atk",       name: "Strength",  icon: "💪", desc: "+1 ATK",           apply: function (p) { p.atk += 1; } },
+    { id: "def",       name: "Fortitude", icon: "🪨", desc: "+1 DEF",           apply: function (p) { p.def += 1; } },
+    { id: "hp",        name: "Vitality",  icon: "❤️", desc: "+4 max HP",        apply: function (p) { p.maxHp += 4; p.hp += 4; } },
+    { id: "shield",    name: "Ward",      icon: "🔰", desc: "+5 max shield",    apply: function (p) { p.shieldMax += 5; p.shield = Math.min(p.shieldMax, p.shield + 5); } },
+    { id: "crit",      name: "Precision", icon: "🎯", desc: "+2% crit chance",  apply: function (p) { p.crit += 2; } },
+    { id: "lifesteal", name: "Vampirism", icon: "🩸", desc: "+2% lifesteal",    apply: function (p) { p.lifesteal += 2; } },
+    { id: "goldFind",  name: "Fortune",   icon: "🍀", desc: "+3% gold found",   apply: function (p) { p.goldFind += 3; } }
   ];
 
   var MONSTER_TYPES = [
@@ -897,6 +884,7 @@ import { onAuthChange, loadUserData } from "./firebase.js";
       rooms.push(arenaReserved);
       currentArena = arenaReserved;
       currentArenaTheme = tierDef.theme;
+      arenaEntranceAnchor = { x: Math.floor(beforeArena.x + beforeArena.w / 2), y: Math.floor(beforeArena.y + beforeArena.h / 2) };
       for (var ay = arenaReserved.y; ay < arenaReserved.y + arenaReserved.h; ay++) {
         for (var ax = arenaReserved.x; ax < arenaReserved.x + arenaReserved.w; ax++) {
           grid[ay][ax].discovered = true;
@@ -906,6 +894,7 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     } else {
       currentArena = null;
       currentArenaTheme = null;
+      arenaEntranceAnchor = null;
     }
 
     var last = rooms[rooms.length - 1];
@@ -935,9 +924,35 @@ import { onAuthChange, loadUserData } from "./firebase.js";
           usedSpots.some(function (s) { return Math.abs(s.x - mx) + Math.abs(s.y - my) < 2; })
         ));
         usedSpots.push({ x: mx, y: my });
+      });
+
+      // Bias the spots so melee members end up closest to the arena entrance
+      // (the direction the hero walks in from) and ranged/healer members end
+      // up farther back, behind their melee line.
+      if (arenaEntranceAnchor && usedSpots.length > 1) {
+        var byDist = usedSpots.map(function (s, i) { return i; }).sort(function (a, b) {
+          var da = Math.hypot(usedSpots[a].x - arenaEntranceAnchor.x, usedSpots[a].y - arenaEntranceAnchor.y);
+          var db = Math.hypot(usedSpots[b].x - arenaEntranceAnchor.x, usedSpots[b].y - arenaEntranceAnchor.y);
+          return da - db;
+        });
+        var meleeIdx = [], backIdx = [];
+        tierDef.members.forEach(function (mem, i) {
+          (mem.role === "ranger" || mem.role === "healer" ? backIdx : meleeIdx).push(i);
+        });
+        var sortedSpots = byDist.map(function (i) { return usedSpots[i]; });
+        var frontSpots = sortedSpots.slice(0, meleeIdx.length);
+        var backSpots = sortedSpots.slice(meleeIdx.length);
+        var reordered = new Array(usedSpots.length);
+        meleeIdx.forEach(function (memberIdx, k) { reordered[memberIdx] = frontSpots[k]; });
+        backIdx.forEach(function (memberIdx, k) { reordered[memberIdx] = backSpots[k]; });
+        usedSpots = reordered;
+      }
+
+      tierDef.members.forEach(function (mem, i) {
+        var spot = usedSpots[i];
         var hp = Math.round(baseBossHp * bossScale * mem.hpMul);
         monsters.push({
-          x: mx, y: my, glyph: mem.glyph, name: mem.name || tierDef.name,
+          x: spot.x, y: spot.y, glyph: mem.glyph, name: mem.name || tierDef.name,
           hp: hp, maxHp: hp, atk: Math.round(baseBossAtk * bossScale * mem.atkMul),
           xp: Math.round(80 * (bossTier + 1) / tierDef.members.length),
           aggro: true, isBoss: true, role: mem.role, huge: !!mem.huge
@@ -1063,8 +1078,9 @@ import { onAuthChange, loadUserData } from "./firebase.js";
       if (player.level % 2 === 0) player.def += 1;
       player.hp = player.maxHp;
       player.shield = player.shieldMax;
-      log("✨ Level up! You are now level " + player.level + ". Shield refreshed.");
-      pendingTalents++;
+      statPoints++;
+      updatePointsButton();
+      log("✨ Level up! You are now level " + player.level + ". Shield refreshed. +1 training point earned.");
     }
   }
 
@@ -1072,94 +1088,43 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     return Math.max(1, atk + rnd(0, 2) - def);
   }
 
-  // ---- TALENT CHOICE (pauses the game between turns) ----
-  function offerTalents(continuation) {
-    talentContinuation = continuation;
-    showNextTalentOffer();
-  }
-
-  function showNextTalentOffer() {
-    var pool = TALENTS.slice();
-    var picks = [];
-    for (var i = 0; i < 3 && pool.length > 0; i++) {
-      var idx = rnd(0, pool.length - 1);
-      picks.push(pool[idx]);
-      pool.splice(idx, 1);
-    }
-    var box = document.getElementById("talent-options");
-    box.innerHTML = picks.map(function (t, i) {
-      return '<button class="talent-option" data-idx="' + i + '">' +
-        '<span class="t-cat">' + t.cat + '</span>' +
-        '<span class="t-name">' + t.icon + " " + t.name + '</span>' +
-        '<span class="t-desc">' + t.desc + "</span>" +
-        "</button>";
-    }).join("");
-    Array.prototype.forEach.call(box.querySelectorAll(".talent-option"), function (btn, i) {
-      btn.addEventListener("click", function () { pickTalent(picks[i]); });
-    });
-    document.getElementById("talent-overlay").classList.add("show");
-
-    clearTalentAutoPick();
-    var note = document.getElementById("talent-auto-note");
-    if (talentAutoPick) {
-      var secondsLeft = Math.ceil(TALENT_AUTO_PICK_MS / 1000);
-      note.style.display = "block";
-      note.textContent = "🤖 Auto-picking in " + secondsLeft + "s...";
-      talentAutoPickInterval = setInterval(function () {
-        secondsLeft--;
-        if (secondsLeft > 0) note.textContent = "🤖 Auto-picking in " + secondsLeft + "s...";
-      }, 1000);
-      talentAutoPickTimeout = setTimeout(function () {
-        pickTalent(picks[rnd(0, picks.length - 1)]);
-      }, TALENT_AUTO_PICK_MS);
-    } else {
-      note.style.display = "none";
-    }
-  }
-
-  function clearTalentAutoPick() {
-    if (talentAutoPickTimeout) { clearTimeout(talentAutoPickTimeout); talentAutoPickTimeout = null; }
-    if (talentAutoPickInterval) { clearInterval(talentAutoPickInterval); talentAutoPickInterval = null; }
-  }
-
-  function pickTalent(t) {
-    clearTalentAutoPick();
-    t.apply(player);
-    pendingTalents = Math.max(0, pendingTalents - 1);
-    log("🌟 Talent gained: " + t.name + " — " + t.desc);
-    document.getElementById("talent-overlay").classList.remove("show");
+  // ---- TRAINING POINTS: spend anytime, no forced pause ----
+  function spendStatPoint(id) {
+    if (statPoints <= 0) return;
+    var sp = STAT_POINTS.filter(function (s) { return s.id === id; })[0];
+    if (!sp) return;
+    sp.apply(player);
+    statPoints--;
+    statPointsSpent[id] = (statPointsSpent[id] || 0) + 1;
+    log("📈 Spent a training point: " + sp.icon + " " + sp.name + " (" + sp.desc + ").");
+    renderPoints();
+    updatePointsButton();
     render();
-    if (pendingTalents > 0) {
-      showNextTalentOffer();
-    } else {
-      turnBusy = false;
-      var cont = talentContinuation;
-      talentContinuation = null;
-      if (cont) cont();
-    }
+  }
+
+  function renderPoints() {
+    document.getElementById("points-available").textContent =
+      "You have " + statPoints + " point" + (statPoints === 1 ? "" : "s") + " to spend.";
+    document.getElementById("points-list").innerHTML = STAT_POINTS.map(function (sp) {
+      var spent = statPointsSpent[sp.id] || 0;
+      return '<div class="shop-row"><div class="shop-row-info">' +
+        '<span class="shop-name">' + sp.icon + " " + sp.name + (spent ? ' <span class="shop-level">+' + spent + "</span>" : "") + "</span>" +
+        '<span class="shop-desc">' + sp.desc + " per point</span></div>" +
+        '<button class="shop-buy" data-id="' + sp.id + '" ' + (statPoints <= 0 ? "disabled" : "") + ">Spend</button></div>";
+    }).join("");
+    Array.prototype.forEach.call(document.querySelectorAll("#points-list .shop-buy"), function (btn) {
+      btn.addEventListener("click", function () { spendStatPoint(btn.getAttribute("data-id")); });
+    });
+  }
+
+  function updatePointsButton() {
+    document.getElementById("points-count").textContent = "(" + statPoints + ")";
   }
 
   function afterPlayerAction() {
     render();
-    if (pendingTalents > 0) {
-      turnBusy = true;
-      var wasAuto = autoMode;
-      talentAutoPick = wasAuto;
-      autoMode = false;
-      updateAutoButton();
-      offerTalents(function () {
-        monsterTurn();
-        render();
-        if (wasAuto) {
-          autoMode = true;
-          updateAutoButton();
-          autoStep();
-        }
-      });
-    } else {
-      monsterTurn();
-      render();
-    }
+    monsterTurn();
+    render();
   }
 
   function tryMovePlayer(dx, dy) {
@@ -1284,10 +1249,16 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     return true;
   }
 
+  function playerInArena() {
+    return !!currentArena && player.x >= currentArena.x && player.x < currentArena.x + currentArena.w &&
+      player.y >= currentArena.y && player.y < currentArena.y + currentArena.h;
+  }
+
   function monsterTurn() {
     if (gameOver) return;
     for (var i = monsters.length - 1; i >= 0; i--) {
       var m = monsters[i];
+      if (m.isBoss && !playerInArena()) continue;
       var dist = Math.hypot(m.x - player.x, m.y - player.y);
       if (!m.aggro && dist <= VIEW_RADIUS && hasLOS(m.x, m.y, player.x, player.y)) m.aggro = true;
       if (!m.aggro) continue;
@@ -1460,7 +1431,9 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     };
     reviveAvailable = heroBonus.streak >= 3;
     runStartEssence = essence;
-    pendingTalents = 0;
+    statPoints = 0;
+    statPointsSpent = {};
+    updatePointsButton();
     runBag = [];
     runLoot = [];
     autoMode = true;
@@ -1486,14 +1459,11 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     render();
 
     if (heroBonus.level > 0) {
-      pendingTalents = heroBonus.level;
-      turnBusy = true;
-      talentAutoPick = autoMode;
-      log("🌟 Your training level grants " + heroBonus.level + " starting talent" + (heroBonus.level === 1 ? "" : "s") + "!");
-      offerTalents(function () { render(); autoStep(); });
-    } else {
-      autoStep();
+      statPoints += heroBonus.level;
+      updatePointsButton();
+      log("🌟 Your training level grants " + heroBonus.level + " starting training point" + (heroBonus.level === 1 ? "" : "s") + "!");
     }
+    autoStep();
   }
 
   // ---- AUTO-EXPLORE ----
@@ -1715,6 +1685,14 @@ import { onAuthChange, loadUserData } from "./firebase.js";
   });
   document.getElementById("btn-bag-close").addEventListener("click", function () {
     document.getElementById("bag-overlay").classList.remove("show");
+  });
+
+  document.getElementById("btn-points").addEventListener("click", function () {
+    renderPoints();
+    document.getElementById("points-overlay").classList.add("show");
+  });
+  document.getElementById("btn-points-close").addEventListener("click", function () {
+    document.getElementById("points-overlay").classList.remove("show");
   });
 
   document.getElementById("btn-continue").addEventListener("click", function () {
