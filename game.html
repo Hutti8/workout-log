@@ -187,6 +187,7 @@
   </div>
   <div class="hud-row">
     <div class="stat"><b>Week</b> <span id="stat-depth">1</span></div>
+    <div class="stat"><b>ATK</b> <span id="stat-atk">0</span></div>
     <div class="stat"><b>DEF</b> <span id="stat-def">0</span></div>
     <div class="stat"><b>🔰</b> <span id="stat-shield">0/0</span></div>
     <div class="stat"><b>💰</b> <span id="stat-gold">0</span></div>
@@ -839,6 +840,7 @@ import { onAuthChange, loadUserData } from "./firebase.js";
         var room = rooms[rnd(1, rooms.length - 1)];
         var mx = rnd(room.x, room.x + room.w - 1), my = rnd(room.y, room.y + room.h - 1);
         if (mx === player.x && my === player.y) continue;
+        if (mx === stairs.x && my === stairs.y) continue;
         if (occupied(mx, my)) continue;
         var t = pool[rnd(0, pool.length - 1)];
         var scale = 1 + (d - 1) * 0.15;
@@ -854,7 +856,7 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     for (var ii = 0; ii < numItems; ii++) {
       var room2 = rooms[rnd(1, rooms.length - 1)];
       var ix = rnd(room2.x, room2.x + room2.w - 1), iy = rnd(room2.y, room2.y + room2.h - 1);
-      if ((ix === player.x && iy === player.y) || occupied(ix, iy) || itemAt(ix, iy)) continue;
+      if ((ix === player.x && iy === player.y) || (ix === stairs.x && iy === stairs.y) || occupied(ix, iy) || itemAt(ix, iy)) continue;
       var kind = chance(0.6) ? "shake" : "gold";
       items.push({ x: ix, y: iy, kind: kind, amount: kind === "gold" ? rnd(3, 6) * d : 0 });
     }
@@ -1080,14 +1082,20 @@ import { onAuthChange, loadUserData } from "./firebase.js";
       if (!m.aggro) continue;
 
       if (Math.abs(m.x - player.x) + Math.abs(m.y - player.y) === 1) {
-        var dmg = rollDamage(m.atk, player.def);
+        var raw = m.atk + rnd(0, 2);
+        var dmg = Math.max(1, raw - player.def);
+        var defBlocked = raw - dmg;
         var absorbed = Math.min(player.shield, dmg);
         player.shield -= absorbed;
         var hpDmg = dmg - absorbed;
         player.hp -= hpDmg;
-        if (absorbed > 0 && hpDmg > 0) log("The " + m.name + " hits you for " + dmg + " (🔰" + absorbed + " absorbed).");
-        else if (absorbed > 0) log("🔰 Your shield absorbs the " + m.name + "'s attack (" + absorbed + ").");
-        else log("The " + m.name + " hits you for " + dmg + ".");
+        var msg = "The " + m.name + " attacks for " + raw;
+        if (defBlocked > 0) msg += " (🪨" + defBlocked + " blocked by DEF)";
+        msg += " → " + dmg + " dmg";
+        if (absorbed > 0 && hpDmg > 0) msg += " (🔰" + absorbed + " absorbed, " + hpDmg + " to HP)";
+        else if (absorbed > 0) msg += " (🔰 fully absorbed by shield)";
+        else msg += " to HP";
+        log(msg);
         if (player.hp <= 0) {
           if (reviveAvailable) {
             reviveAvailable = false;
@@ -1200,6 +1208,7 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     document.getElementById("stat-level").textContent = player.level;
     document.getElementById("stat-xp").textContent = player.xp + "/" + xpNeeded(player.level);
     document.getElementById("stat-depth").textContent = depth;
+    document.getElementById("stat-atk").textContent = player.atk;
     document.getElementById("stat-def").textContent = player.def;
     document.getElementById("stat-shield").textContent = player.shield + "/" + player.shieldMax;
     document.getElementById("stat-gold").textContent = player.gold;
@@ -1310,7 +1319,7 @@ import { onAuthChange, loadUserData } from "./firebase.js";
   function nearestVisibleItem(kind) {
     var best = null, bestDist = Infinity;
     items.forEach(function (it) {
-      if (it.kind !== kind) return;
+      if (kind && it.kind !== kind) return;
       if (!grid[it.y][it.x].discovered) return;
       var d = Math.abs(it.x - player.x) + Math.abs(it.y - player.y);
       if (d < bestDist) { bestDist = d; best = it; }
@@ -1363,6 +1372,7 @@ import { onAuthChange, loadUserData } from "./firebase.js";
 
   function autoStepToward(tx, ty, boss, stuckMessage) {
     var avoid = function (x, y) {
+      if ((x !== tx || y !== ty) && x === stairs.x && y === stairs.y) return true;
       if (boss && x === boss.x && y === boss.y) return true;
       var m = occupied(x, y);
       if (m && !(x === tx && y === ty)) return true;
@@ -1372,6 +1382,7 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     if (!path || path.length === 0) {
       if (boss) {
         var avoidNoBoss = function (x, y) {
+          if ((x !== tx || y !== ty) && x === stairs.x && y === stairs.y) return true;
           if (x === boss.x && y === boss.y) return false;
           var m = occupied(x, y);
           return m && !(x === tx && y === ty);
@@ -1417,8 +1428,8 @@ import { onAuthChange, loadUserData } from "./firebase.js";
       return;
     }
 
-    var shake = nearestVisibleItem("shake");
-    if (shake) { autoStepToward(shake.x, shake.y, boss); return; }
+    var item = nearestVisibleItem();
+    if (item) { autoStepToward(item.x, item.y, boss); return; }
 
     var monster = nearestVisibleMonster(boss);
     if (monster) { autoStepToward(monster.x, monster.y, boss); return; }
