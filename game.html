@@ -413,9 +413,15 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     var it = itemAt(nx, ny);
     if (it) {
       if (it.kind === "shake") {
-        var heal = Math.min(player.maxHp - player.hp, rnd(8, 15));
-        player.hp += heal;
-        log("🥤 You down a protein shake and heal " + heal + " HP.");
+        if (player.hp >= player.maxHp) {
+          var bonus = rnd(5, 10);
+          player.gold += bonus;
+          log("🥤 Already at full HP — you sell the shake for " + bonus + " gains instead.");
+        } else {
+          var heal = Math.min(player.maxHp - player.hp, rnd(8, 15));
+          player.hp += heal;
+          log("🥤 You down a protein shake and heal " + heal + " HP.");
+        }
       } else {
         player.gold += it.amount;
         log("💰 You bank " + it.amount + " gains.");
@@ -427,7 +433,6 @@ import { onAuthChange, loadUserData } from "./firebase.js";
       depth++;
       log("🏆 New PR! You advance to week " + depth + " of training.");
       generateLevel(depth);
-      computeFOV();
       saveHighScore();
       render();
       return;
@@ -519,6 +524,7 @@ import { onAuthChange, loadUserData } from "./firebase.js";
   window.addEventListener("resize", function () { updateBoardSize(); });
 
   function render() {
+    computeFOV();
     updateBoardSize();
     var board = document.getElementById("board");
     board.style.gridTemplateColumns = "repeat(" + W + ", var(--cell-size, 18px))";
@@ -571,7 +577,6 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     document.getElementById("gate-overlay").classList.remove("show");
     document.getElementById("log").innerHTML = "";
     generateLevel(depth);
-    computeFOV();
 
     if (heroBonus.workouts > 0) {
       log("🏋️ Your hero rises, forged from " + heroBonus.workouts + " logged workout" + (heroBonus.workouts === 1 ? "" : "s") + ".");
