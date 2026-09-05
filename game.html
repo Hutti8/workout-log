@@ -41,6 +41,10 @@
   #hpbar-fill { height: 100%; background: linear-gradient(90deg, var(--danger), var(--good)); transition: width .15s; }
   #hpbar-label { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; }
 
+  #bossbar-outer { flex: 1 1 100%; background: var(--bg-card); border: 1px solid var(--danger); border-radius: 8px; overflow: hidden; position: relative; height: 24px; }
+  #bossbar-fill { height: 100%; background: linear-gradient(90deg, #7a0000, #e05c5c); transition: width .15s; }
+  #bossbar-label { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; }
+
   #board {
     display: grid;
     background: #000;
@@ -56,6 +60,7 @@
     width: var(--cell-size, 18px); height: var(--cell-size, 18px);
     display: flex; align-items: center; justify-content: center;
     font-size: calc(var(--cell-size, 18px) * 0.78);
+    position: relative;
   }
   .c-hidden { background: #000; }
   .c-seen { background: #141418; color: #4a4a52; }
@@ -65,6 +70,12 @@
   .c-monster { background: #202028; color: #e05c5c; font-weight: 700; }
   .c-item { background: #202028; color: var(--gold); font-weight: 700; }
   .c-stairs { background: #202028; color: var(--good); font-weight: 700; }
+  .c-boss {
+    background: #2a1418; color: #ff5c5c; font-weight: 700;
+    font-size: calc(var(--cell-size, 18px) * 1.35);
+    text-shadow: 0 0 6px rgba(255,92,92,0.85);
+    z-index: 2; overflow: visible;
+  }
 
   #log {
     background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
@@ -84,6 +95,13 @@
   #btn-wait { grid-column: 2; grid-row: 2; font-size: 13px; }
   #btn-right { grid-column: 3; grid-row: 2; }
   #btn-down { grid-column: 2; grid-row: 3; }
+
+  #utility-row { display: flex; gap: 8px; justify-content: center; margin-top: 10px; }
+  #utility-row button {
+    background: var(--bg-card); border: 1px solid var(--border); color: var(--text-primary);
+    border-radius: 10px; font-size: 13px; padding: 8px 14px; touch-action: manipulation;
+  }
+  #btn-auto.active { background: var(--accent); border-color: var(--col-hi); }
 
   #hint { text-align: center; font-size: 11.5px; color: var(--text-secondary); margin-top: 10px; }
 
@@ -127,12 +145,18 @@
     background: var(--bg-primary); border: 1px solid var(--border); border-radius: 10px;
     padding: 10px 12px; margin-bottom: 8px; text-align: left;
   }
+  .shop-row.equipped { border-color: var(--col-hi); background: rgba(126,184,247,0.08); }
   .shop-row-info { flex: 1; min-width: 0; }
   .shop-name { font-weight: 700; font-size: 14px; }
   .shop-level { font-weight: 400; color: var(--text-secondary); font-size: 12px; }
   .shop-desc { display: block; font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
-  .modal-box button.shop-buy { margin-top: 0; width: auto; padding: 8px 12px; font-size: 12.5px; white-space: nowrap; }
-  #shop-list { margin-top: 10px; }
+  .modal-box button.shop-buy, .modal-box button.armory-buy, .modal-box button.armory-equip, .modal-box button.armory-unequip {
+    margin-top: 0; width: auto; padding: 8px 12px; font-size: 12.5px; white-space: nowrap; flex-shrink: 0;
+  }
+  .modal-box button.armory-unequip { background: transparent; border: 1px solid var(--border); color: var(--text-primary); }
+  #shop-list, #armory-list, #bag-list { margin-top: 10px; text-align: left; }
+  .armory-slot-title { font-size: 12.5px; font-weight: 700; color: var(--col-hi); text-transform: uppercase; letter-spacing: .03em; margin: 14px 0 6px; }
+  .armory-slot-title:first-child { margin-top: 0; }
 </style>
 </head>
 <body>
@@ -147,6 +171,9 @@
     <div id="hpbar-outer"><div id="hpbar-fill" style="width:100%"></div><div id="hpbar-label">30 / 30</div></div>
     <div class="stat"><b>Lv</b> <span id="stat-level">1</span></div>
     <div class="stat"><b>XP</b> <span id="stat-xp">0/20</span></div>
+  </div>
+  <div class="hud-row" id="boss-bar-row" style="display:none;">
+    <div id="bossbar-outer"><div id="bossbar-fill" style="width:100%"></div><div id="bossbar-label"></div></div>
   </div>
   <div class="hud-row">
     <div class="stat"><b>Week</b> <span id="stat-depth">1</span></div>
@@ -168,7 +195,12 @@
     <button id="btn-down">▼</button>
   </div>
 
-  <p id="hint">Arrow keys / WASD to move, bump into monsters to attack, Space to wait. 🔰 Shield absorbs hits before HP and refills on level up. Find <span style="color:var(--good)">&gt;</span> for a new PR and the next training week.</p>
+  <div id="utility-row">
+    <button id="btn-auto">🤖 Auto</button>
+    <button id="btn-bag">🎒 Bag <span id="bag-count">(0/6)</span></button>
+  </div>
+
+  <p id="hint">Arrow keys / WASD to move, bump into monsters to attack, Space to wait. 🔰 Shield absorbs hits before HP and refills on level up. Every 10th week guards a boss — auto-explore won't fight it for you. Find <span style="color:var(--good)">&gt;</span> to advance.</p>
 
 </div>
 
@@ -189,6 +221,7 @@
     <p id="hub-hero-summary"></p>
     <p id="hub-essence"></p>
     <button id="btn-start-run">⚔️ Start Run</button>
+    <button id="btn-open-armory" class="btn-outline">🧰 Armory</button>
     <button id="btn-open-shop" class="btn-outline">🛒 Permanent Upgrades</button>
   </div>
 </div>
@@ -199,6 +232,25 @@
     <p id="shop-essence"></p>
     <div id="shop-list"></div>
     <button id="btn-shop-back" class="btn-outline">← Back to Base Camp</button>
+  </div>
+</div>
+
+<div id="armory-overlay" class="modal-backdrop">
+  <div class="modal-box" style="max-width:440px;">
+    <h2>🧰 Armory</h2>
+    <p id="armory-essence"></p>
+    <p style="font-size:12px;">Gear you own carries over forever — outfit your hero before each run.</p>
+    <div id="armory-list"></div>
+    <button id="btn-armory-back" class="btn-outline">← Back to Base Camp</button>
+  </div>
+</div>
+
+<div id="bag-overlay" class="modal-backdrop">
+  <div class="modal-box" style="max-width:380px;">
+    <h2>🎒 Bag <span id="bag-title-count"></span></h2>
+    <p id="bag-empty-note">Nothing in your bag yet — boss fights drop loot here.</p>
+    <div id="bag-list"></div>
+    <button id="btn-bag-close" class="btn-outline">Close</button>
   </div>
 </div>
 
@@ -215,6 +267,7 @@
     <h2 id="overlay-title" class="danger">You collapsed</h2>
     <p id="overlay-stats"></p>
     <p id="overlay-essence"></p>
+    <p id="overlay-loot"></p>
     <p id="overlay-best"></p>
     <button id="btn-continue">▶ Continue</button>
   </div>
@@ -229,9 +282,16 @@ import { onAuthChange, loadUserData } from "./firebase.js";
   var W = 28, H = 16;
   var WALL = 0, FLOOR = 1;
   var VIEW_RADIUS = 6;
+  var BOSS_INTERVAL = 10;
+  var RUN_BAG_CAP = 6;
+  var STASH_CAP = 30;
+  var AUTO_TICK_MS = 300;
+
   var HIGH_SCORE_KEY = "gains-dungeon-best-week";
   var ESSENCE_KEY = "gains-dungeon-essence";
   var UPGRADES_KEY = "gains-dungeon-upgrades";
+  var STASH_KEY = "gains-dungeon-stash";
+  var EQUIPPED_KEY = "gains-dungeon-equipped";
 
   var grid, rooms, player, monsters, items, stairs, depth, messages, gameOver, turnBusy, reviveAvailable;
   gameOver = true; // locked until the hero is ready
@@ -242,6 +302,40 @@ import { onAuthChange, loadUserData } from "./firebase.js";
   var runStartEssence = 0;
   var pendingTalents = 0;
   var talentContinuation = null;
+  var stairsLocked = false;
+  var runBag = [];
+  var runLoot = [];
+  var autoMode = false;
+
+  var EQUIP_SLOTS = ["weapon", "offhand", "armor", "ring", "trinket"];
+  var SLOT_LABELS = { weapon: "🗡️ Weapon", offhand: "🛡️ Off-hand", armor: "🎽 Armor", ring: "💍 Ring", trinket: "🔮 Trinket" };
+
+  var ITEM_CATALOG = [
+    { id: "w_dumbbell",   slot: "weapon",  tier: 1, name: "Wooden Dumbbell",   icon: "🏋️", cost: 20,  bonus: { atk: 2 } },
+    { id: "w_barbell",    slot: "weapon",  tier: 2, name: "Iron Barbell",      icon: "🏋️", cost: 60,  bonus: { atk: 5 } },
+    { id: "w_kettlebell", slot: "weapon",  tier: 3, name: "Steel Kettlebell",  icon: "🏋️", cost: 130, bonus: { atk: 9, crit: 5 } },
+    { id: "w_olympic",    slot: "weapon",  tier: 4, name: "Olympic Barbell",   icon: "🥇", cost: 250, bonus: { atk: 15, crit: 8 } },
+
+    { id: "o_chalk",      slot: "offhand", tier: 1, name: "Chalk Bag",         icon: "🧤", cost: 20,  bonus: { crit: 5 } },
+    { id: "o_straps",     slot: "offhand", tier: 2, name: "Lifting Straps",    icon: "🎗️", cost: 60,  bonus: { atk: 3 } },
+    { id: "o_belt",       slot: "offhand", tier: 3, name: "Training Belt",     icon: "🥋", cost: 130, bonus: { def: 4 } },
+    { id: "o_gloves",     slot: "offhand", tier: 4, name: "Boxing Gloves",     icon: "🥊", cost: 250, bonus: { crit: 10, atk: 4 } },
+
+    { id: "a_tank",       slot: "armor",   tier: 1, name: "Gym Tank Top",      icon: "🎽", cost: 20,  bonus: { def: 3 } },
+    { id: "a_compress",   slot: "armor",   tier: 2, name: "Compression Shirt", icon: "👕", cost: 60,  bonus: { def: 6, shield: 10 } },
+    { id: "a_vest",       slot: "armor",   tier: 3, name: "Weighted Vest",     icon: "🦺", cost: 130, bonus: { def: 10, hp: 15 } },
+    { id: "a_singlet",    slot: "armor",   tier: 4, name: "Champion's Singlet", icon: "🏆", cost: 250, bonus: { def: 15, shield: 20 } },
+
+    { id: "r_tracker",    slot: "ring",    tier: 1, name: "Fitness Tracker",   icon: "⌚", cost: 20,  bonus: { goldFind: 10 } },
+    { id: "r_monitor",    slot: "ring",    tier: 2, name: "Heart Rate Monitor", icon: "💓", cost: 60,  bonus: { lifesteal: 5 } },
+    { id: "r_sweat",      slot: "ring",    tier: 3, name: "Lucky Sweatband",   icon: "🍀", cost: 130, bonus: { crit: 10 } },
+    { id: "r_gains",      slot: "ring",    tier: 4, name: "Ring of Gains",     icon: "💍", cost: 250, bonus: { goldFind: 20, lifesteal: 5 } },
+
+    { id: "t_shaker",     slot: "trinket", tier: 1, name: "Protein Shaker",    icon: "🥤", cost: 20,  bonus: { hp: 8 } },
+    { id: "t_preworkout", slot: "trinket", tier: 2, name: "Pre-Workout Vial", icon: "⚗️", cost: 60,  bonus: { crit: 10 } },
+    { id: "t_roller",     slot: "trinket", tier: 3, name: "Foam Roller",       icon: "🧻", cost: 130, bonus: { shield: 15 } },
+    { id: "t_trophy",     slot: "trinket", tier: 4, name: "Golden Trophy",     icon: "🏆", cost: 250, bonus: { atk: 8, def: 8 } }
+  ];
 
   var UPGRADES = [
     { id: "vitality",  name: "Vitality",   icon: "❤️", desc: "+8 max HP per level",       max: 10, perLevel: 8,  baseCost: 15 },
@@ -271,6 +365,8 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     { glyph: "T", name: "rest day troll",      hp: 26, atk: 7, xp: 32, minDepth: 5 }
   ];
 
+  var BOSS_NAMES = ["Deadline Demon", "Rest Day Reaper", "The Snooze Colossus", "Cheat Day Kraken", "The Plateau"];
+
   function rnd(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
   function chance(p) { return Math.random() < p; }
   function num(v) { var n = parseFloat(v); return isNaN(n) ? 0 : n; }
@@ -285,23 +381,83 @@ import { onAuthChange, loadUserData } from "./firebase.js";
   }
   var upgrades = loadUpgrades();
 
+  function loadStash() {
+    try { return JSON.parse(localStorage.getItem(STASH_KEY) || "[]"); } catch (e) { return []; }
+  }
+  var stash = loadStash();
+
+  function loadEquipped() {
+    var d = {};
+    EQUIP_SLOTS.forEach(function (s) { d[s] = null; });
+    try {
+      var raw = JSON.parse(localStorage.getItem(EQUIPPED_KEY) || "{}");
+      EQUIP_SLOTS.forEach(function (s) { if (raw[s] && ownsItemRaw(raw[s])) d[s] = raw[s]; });
+    } catch (e) {}
+    return d;
+  }
+  function ownsItemRaw(id) { return stash.indexOf(id) !== -1; }
+  var equipped = loadEquipped();
+
   function saveEssence() { localStorage.setItem(ESSENCE_KEY, String(essence)); }
   function saveUpgrades() { localStorage.setItem(UPGRADES_KEY, JSON.stringify(upgrades)); }
+  function saveStash() { localStorage.setItem(STASH_KEY, JSON.stringify(stash)); }
+  function saveEquipped() { localStorage.setItem(EQUIPPED_KEY, JSON.stringify(equipped)); }
+
+  function itemById(id) {
+    for (var i = 0; i < ITEM_CATALOG.length; i++) if (ITEM_CATALOG[i].id === id) return ITEM_CATALOG[i];
+    return null;
+  }
+  function ownsItem(id) { return stash.indexOf(id) !== -1; }
+  function addToStash(id) {
+    if (stash.indexOf(id) !== -1) return true;
+    if (stash.length >= STASH_CAP) return false;
+    stash.push(id);
+    saveStash();
+    return true;
+  }
 
   function addGold(amount) {
     player.gold += amount;
     essence += amount;
     saveEssence();
-    document.getElementById("stat-essence").textContent = essence;
+    var el = document.getElementById("stat-essence");
+    if (el) el.textContent = essence;
+  }
+
+  function describeBonus(b) {
+    var parts = [];
+    if (b.atk) parts.push("+" + b.atk + " ATK");
+    if (b.def) parts.push("+" + b.def + " DEF");
+    if (b.hp) parts.push("+" + b.hp + " HP");
+    if (b.shield) parts.push("+" + b.shield + " Shield");
+    if (b.crit) parts.push("+" + b.crit + "% Crit");
+    if (b.lifesteal) parts.push("+" + b.lifesteal + "% Lifesteal");
+    if (b.goldFind) parts.push("+" + b.goldFind + "% Gold");
+    return parts.join(" · ");
+  }
+
+  function computeEquipBonus() {
+    var b = { atk: 0, def: 0, hp: 0, shield: 0, crit: 0, lifesteal: 0, goldFind: 0 };
+    EQUIP_SLOTS.forEach(function (slot) {
+      var id = equipped[slot];
+      if (!id) return;
+      var it = itemById(id);
+      if (!it) return;
+      Object.keys(it.bonus).forEach(function (k) { b[k] = (b[k] || 0) + it.bonus[k]; });
+    });
+    return b;
   }
 
   function computeBaseStats() {
+    var eq = computeEquipBonus();
     return {
-      hp: 30 + heroBonus.hp + upgrades.vitality * 8,
-      atk: 4 + heroBonus.atk + upgrades.strength * 2,
-      def: 1 + upgrades.fortitude * 1,
-      shieldMax: 10 + upgrades.ward * 10,
-      goldFind: upgrades.fortune * 8
+      hp: 30 + heroBonus.hp + upgrades.vitality * 8 + eq.hp,
+      atk: 4 + heroBonus.atk + upgrades.strength * 2 + eq.atk,
+      def: 1 + upgrades.fortitude * 1 + eq.def,
+      shieldMax: 10 + upgrades.ward * 10 + eq.shield,
+      goldFind: upgrades.fortune * 8 + eq.goldFind,
+      crit: eq.crit,
+      lifesteal: eq.lifesteal
     };
   }
 
@@ -342,12 +498,148 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     });
   }
 
+  // ---- ARMORY: buy gear (carries over forever) and outfit the hero before a run ----
+  function buyItem(id, slot) {
+    var it = itemById(id);
+    if (!it || ownsItem(id) || essence < it.cost) return;
+    essence -= it.cost;
+    saveEssence();
+    addToStash(id);
+    if (!equipped[slot]) { equipped[slot] = id; saveEquipped(); }
+    renderArmory();
+    renderHub();
+  }
+
+  function equipItem(id, slot) {
+    if (!ownsItem(id)) return;
+    equipped[slot] = id;
+    saveEquipped();
+    renderArmory();
+    renderHub();
+  }
+
+  function unequipSlot(slot) {
+    equipped[slot] = null;
+    saveEquipped();
+    renderArmory();
+    renderHub();
+  }
+
+  function renderArmory() {
+    document.getElementById("armory-essence").textContent = "💎 Essence: " + essence;
+    var html = "";
+    EQUIP_SLOTS.forEach(function (slot) {
+      var slotItems = ITEM_CATALOG.filter(function (it) { return it.slot === slot; }).sort(function (a, b) { return a.tier - b.tier; });
+      html += '<div class="armory-slot-title">' + SLOT_LABELS[slot] + "</div>";
+      html += slotItems.map(function (it) {
+        var owned = ownsItem(it.id);
+        var isEquipped = equipped[slot] === it.id;
+        var action;
+        if (isEquipped) action = '<button class="armory-unequip" data-slot="' + slot + '">Unequip</button>';
+        else if (owned) action = '<button class="armory-equip" data-id="' + it.id + '" data-slot="' + slot + '">Equip</button>';
+        else action = '<button class="armory-buy" data-id="' + it.id + '" data-slot="' + slot + '" ' + (essence < it.cost ? "disabled" : "") + ">Buy · 💎" + it.cost + "</button>";
+        return '<div class="shop-row' + (isEquipped ? " equipped" : "") + '">' +
+          '<div class="shop-row-info"><span class="shop-name">' + it.icon + " " + it.name + '</span>' +
+          '<span class="shop-desc">' + describeBonus(it.bonus) + "</span></div>" + action + "</div>";
+      }).join("");
+    });
+    var list = document.getElementById("armory-list");
+    list.innerHTML = html;
+    Array.prototype.forEach.call(list.querySelectorAll(".armory-buy"), function (btn) {
+      btn.addEventListener("click", function () { buyItem(btn.getAttribute("data-id"), btn.getAttribute("data-slot")); });
+    });
+    Array.prototype.forEach.call(list.querySelectorAll(".armory-equip"), function (btn) {
+      btn.addEventListener("click", function () { equipItem(btn.getAttribute("data-id"), btn.getAttribute("data-slot")); });
+    });
+    Array.prototype.forEach.call(list.querySelectorAll(".armory-unequip"), function (btn) {
+      btn.addEventListener("click", function () { unequipSlot(btn.getAttribute("data-slot")); });
+    });
+  }
+
+  // ---- IN-RUN BAG: loot found mid-run; migrates to the stash at run's end ----
+  function grantItemDrop() {
+    var candidates = ITEM_CATALOG.filter(function (it) { return !ownsItem(it.id) && runBag.indexOf(it.id) === -1; });
+    if (candidates.length === 0) {
+      var bonus = 40 + depth * 5;
+      addGold(bonus);
+      log("💎 You already own all the gear — the loot converts to " + bonus + " bonus essence.");
+      return;
+    }
+    if (runBag.length >= RUN_BAG_CAP) {
+      var bonus2 = 25;
+      addGold(bonus2);
+      log("🎒 Your bag is full — the dropped gear sells for " + bonus2 + " essence instead.");
+      return;
+    }
+    var pick = candidates[rnd(0, candidates.length - 1)];
+    runBag.push(pick.id);
+    runLoot.push(pick.id);
+    log("📦 The boss drops " + pick.icon + " " + pick.name + "! (" + describeBonus(pick.bonus) + ") — in your bag.");
+  }
+
+  function applyStatDelta(key, delta) {
+    if (!delta) return;
+    player[key] = Math.max(0, (player[key] || 0) + delta);
+  }
+
+  function equipFromBag(itemId) {
+    var it = itemById(itemId);
+    if (!it || runBag.indexOf(itemId) === -1) return;
+    var slot = it.slot;
+    var oldId = equipped[slot];
+    var oldBonus = oldId ? (itemById(oldId) || {}).bonus || {} : {};
+    var newBonus = it.bonus || {};
+
+    applyStatDelta("atk", (newBonus.atk || 0) - (oldBonus.atk || 0));
+    applyStatDelta("def", (newBonus.def || 0) - (oldBonus.def || 0));
+    applyStatDelta("crit", (newBonus.crit || 0) - (oldBonus.crit || 0));
+    applyStatDelta("lifesteal", (newBonus.lifesteal || 0) - (oldBonus.lifesteal || 0));
+    applyStatDelta("goldFind", (newBonus.goldFind || 0) - (oldBonus.goldFind || 0));
+    var hpDelta = (newBonus.hp || 0) - (oldBonus.hp || 0);
+    if (hpDelta) { player.maxHp = Math.max(1, player.maxHp + hpDelta); player.hp = Math.min(player.maxHp, Math.max(1, player.hp + hpDelta)); }
+    var shieldDelta = (newBonus.shield || 0) - (oldBonus.shield || 0);
+    if (shieldDelta) { player.shieldMax = Math.max(0, player.shieldMax + shieldDelta); player.shield = Math.min(player.shieldMax, Math.max(0, player.shield + shieldDelta)); }
+
+    addToStash(itemId);
+    equipped[slot] = itemId;
+    saveEquipped();
+    if (oldId) addToStash(oldId);
+    runBag.splice(runBag.indexOf(itemId), 1);
+    log("🎒 Equipped " + it.icon + " " + it.name + " (" + SLOT_LABELS[slot] + ").");
+    renderBag();
+    render();
+  }
+
+  function renderBag() {
+    var count = "(" + runBag.length + "/" + RUN_BAG_CAP + ")";
+    document.getElementById("bag-count").textContent = count;
+    document.getElementById("bag-title-count").textContent = count;
+    var list = document.getElementById("bag-list");
+    if (runBag.length === 0) {
+      list.innerHTML = "";
+      document.getElementById("bag-empty-note").style.display = "block";
+      return;
+    }
+    document.getElementById("bag-empty-note").style.display = "none";
+    list.innerHTML = runBag.map(function (id) {
+      var it = itemById(id);
+      return '<div class="shop-row"><div class="shop-row-info"><span class="shop-name">' + it.icon + " " + it.name + '</span>' +
+        '<span class="shop-desc">' + describeBonus(it.bonus) + " · " + SLOT_LABELS[it.slot] + "</span></div>" +
+        '<button class="armory-equip" data-id="' + id + '">Equip</button></div>';
+    }).join("");
+    Array.prototype.forEach.call(list.querySelectorAll(".armory-equip"), function (btn) {
+      btn.addEventListener("click", function () { equipFromBag(btn.getAttribute("data-id")); });
+    });
+  }
+
   function renderHub() {
     document.getElementById("hub-essence").textContent = "💎 Essence: " + essence;
     var base = computeBaseStats();
     var lines = [
       "Lv " + (1 + heroBonus.level) + " · " + base.hp + " HP · " + base.atk + " ATK · " + base.def + " DEF · 🔰" + base.shieldMax + " shield"
     ];
+    var gearCount = EQUIP_SLOTS.filter(function (s) { return equipped[s]; }).length;
+    lines.push("🧰 " + gearCount + "/" + EQUIP_SLOTS.length + " slots equipped · 📦 " + stash.length + "/" + STASH_CAP + " gear owned");
     if (heroBonus.pumped) lines.push("🔥 Pumped today — bonus attack this run.");
     if (heroBonus.streak >= 3) lines.push("🛡 Second Wind ready (" + heroBonus.streak + "-day streak).");
     document.getElementById("hub-hero-summary").innerHTML = lines.join("<br>");
@@ -357,6 +649,7 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     document.getElementById("gate-overlay").classList.remove("show");
     document.getElementById("overlay").classList.remove("show");
     document.getElementById("shop-overlay").classList.remove("show");
+    document.getElementById("armory-overlay").classList.remove("show");
     renderHub();
     document.getElementById("hub-overlay").classList.add("show");
   }
@@ -430,10 +723,33 @@ import { onAuthChange, loadUserData } from "./firebase.js";
            a.y - 1 < b.y + b.h + 1 && a.y + a.h + 1 > b.y - 1;
   }
 
+  function placeArenaRoom(existingRooms) {
+    var sizes = [[13, 9], [12, 8], [11, 8], [10, 7], [9, 6], [8, 6]];
+    for (var s = 0; s < sizes.length; s++) {
+      var aw = sizes[s][0], ah = sizes[s][1];
+      if (aw > W - 3 || ah > H - 3) continue;
+      for (var attempt = 0; attempt < 150; attempt++) {
+        var ax = rnd(1, W - aw - 2), ay = rnd(1, H - ah - 2);
+        var candidate = { x: ax, y: ay, w: aw, h: ah };
+        var ok = true;
+        for (var i = 0; i < existingRooms.length; i++) if (roomsOverlap(candidate, existingRooms[i])) { ok = false; break; }
+        if (ok) return candidate;
+      }
+    }
+    return null;
+  }
+
   function generateLevel(d) {
     grid = newGrid();
     rooms = [];
-    var attempts = 0, maxRooms = 6 + Math.min(d, 4);
+    var isBossLevel = d % BOSS_INTERVAL === 0;
+
+    // Reserve the boss arena's footprint FIRST (against an empty map) so it
+    // gets first pick of space, before the small rooms fragment everything.
+    var arenaReserved = isBossLevel ? placeArenaRoom([]) : null;
+    var blockers = arenaReserved ? [arenaReserved] : [];
+
+    var attempts = 0, maxRooms = (isBossLevel ? 5 : 6) + Math.min(d, 4);
     while (rooms.length < maxRooms && attempts < 300) {
       attempts++;
       var w = rnd(4, 7), h = rnd(3, 5);
@@ -441,6 +757,7 @@ import { onAuthChange, loadUserData } from "./firebase.js";
       var room = { x: x, y: y, w: w, h: h };
       var ok = true;
       for (var i = 0; i < rooms.length; i++) if (roomsOverlap(room, rooms[i])) { ok = false; break; }
+      if (ok) for (var bi2 = 0; bi2 < blockers.length; bi2++) if (roomsOverlap(room, blockers[bi2])) { ok = false; break; }
       if (!ok) continue;
       carveRoom(room);
       if (rooms.length > 0) {
@@ -451,29 +768,74 @@ import { onAuthChange, loadUserData } from "./firebase.js";
       rooms.push(room);
     }
 
+    if (rooms.length === 0) {
+      // Extremely unlikely fallback: force a starting room even if the arena ate most of the map.
+      rooms.push({ x: 1, y: 1, w: 4, h: 3 });
+      carveRoom(rooms[0]);
+    }
+
     var start = rooms[0];
     player.x = Math.floor(start.x + start.w / 2);
     player.y = Math.floor(start.y + start.h / 2);
+
+    if (isBossLevel && arenaReserved) {
+      carveRoom(arenaReserved);
+      var beforeArena = rooms[rooms.length - 1];
+      carveCorridor(Math.floor(beforeArena.x + beforeArena.w / 2), Math.floor(beforeArena.y + beforeArena.h / 2),
+                     Math.floor(arenaReserved.x + arenaReserved.w / 2), Math.floor(arenaReserved.y + arenaReserved.h / 2));
+      rooms.push(arenaReserved);
+    }
 
     var last = rooms[rooms.length - 1];
     stairs = { x: Math.floor(last.x + last.w / 2), y: Math.floor(last.y + last.h / 2) };
 
     monsters = [];
     items = [];
+    stairsLocked = false;
+
     var pool = MONSTER_TYPES.filter(function (m) { return m.minDepth <= d; });
-    var numMonsters = 3 + d;
-    for (var mi = 0; mi < numMonsters; mi++) {
-      var room = rooms[rnd(1, rooms.length - 1)];
-      var mx = rnd(room.x, room.x + room.w - 1), my = rnd(room.y, room.y + room.h - 1);
-      if (mx === player.x && my === player.y) continue;
-      if (occupied(mx, my)) continue;
-      var t = pool[rnd(0, pool.length - 1)];
-      var scale = 1 + (d - 1) * 0.15;
+
+    if (isBossLevel) {
+      stairsLocked = true;
+      var bossTier = Math.floor(d / BOSS_INTERVAL) - 1;
+      var bossScale = 1 + bossTier * 0.7;
+      var bossHp = Math.round(60 * bossScale);
+      var bx = Math.floor(last.x + last.w / 2) - 2;
+      var by = Math.floor(last.y + last.h / 2);
+      bx = Math.max(last.x + 1, Math.min(last.x + last.w - 2, bx));
+      if (bx === stairs.x && by === stairs.y) bx = Math.max(last.x + 1, bx - 1);
       monsters.push({
-        x: mx, y: my, glyph: t.glyph, name: t.name,
-        hp: Math.round(t.hp * scale), maxHp: Math.round(t.hp * scale),
-        atk: Math.round(t.atk * scale), xp: t.xp, aggro: false
+        x: bx, y: by, glyph: "👹", name: BOSS_NAMES[bossTier % BOSS_NAMES.length],
+        hp: bossHp, maxHp: bossHp, atk: Math.round(9 * bossScale), xp: 80 * (bossTier + 1),
+        aggro: true, isBoss: true
       });
+      var numMinions = 2;
+      for (var bi = 0; bi < numMinions; bi++) {
+        var mx2 = rnd(last.x, last.x + last.w - 1), my2 = rnd(last.y, last.y + last.h - 1);
+        if ((mx2 === player.x && my2 === player.y) || (mx2 === stairs.x && my2 === stairs.y) || occupied(mx2, my2)) continue;
+        var mt = pool[rnd(0, pool.length - 1)];
+        var mscale = 1 + (d - 1) * 0.15;
+        monsters.push({
+          x: mx2, y: my2, glyph: mt.glyph, name: mt.name,
+          hp: Math.round(mt.hp * mscale), maxHp: Math.round(mt.hp * mscale),
+          atk: Math.round(mt.atk * mscale), xp: mt.xp, aggro: false
+        });
+      }
+    } else {
+      var numMonsters = 3 + d;
+      for (var mi = 0; mi < numMonsters; mi++) {
+        var room = rooms[rnd(1, rooms.length - 1)];
+        var mx = rnd(room.x, room.x + room.w - 1), my = rnd(room.y, room.y + room.h - 1);
+        if (mx === player.x && my === player.y) continue;
+        if (occupied(mx, my)) continue;
+        var t = pool[rnd(0, pool.length - 1)];
+        var scale = 1 + (d - 1) * 0.15;
+        monsters.push({
+          x: mx, y: my, glyph: t.glyph, name: t.name,
+          hp: Math.round(t.hp * scale), maxHp: Math.round(t.hp * scale),
+          atk: Math.round(t.atk * scale), xp: t.xp, aggro: false
+        });
+      }
     }
 
     var numItems = 2 + rnd(0, 2);
@@ -496,6 +858,10 @@ import { onAuthChange, loadUserData } from "./firebase.js";
   }
   function inBounds(x, y) { return x >= 0 && y >= 0 && x < W && y < H; }
   function isWall(x, y) { return !inBounds(x, y) || grid[y][x].type === WALL; }
+  function getBoss() {
+    for (var i = 0; i < monsters.length; i++) if (monsters[i].isBoss) return monsters[i];
+    return null;
+  }
 
   function bresenham(x0, y0, x1, y1) {
     var pts = [];
@@ -608,6 +974,8 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     render();
     if (pendingTalents > 0) {
       turnBusy = true;
+      autoMode = false;
+      updateAutoButton();
       offerTalents(function () { monsterTurn(); render(); });
     } else {
       monsterTurn();
@@ -638,6 +1006,13 @@ import { onAuthChange, loadUserData } from "./firebase.js";
         log("💀 The " + m.name + " dies.");
         monsters.splice(monsters.indexOf(m), 1);
         gainXp(m.xp);
+        if (m.isBoss) {
+          stairsLocked = false;
+          var bossGold = 60 + depth * 8;
+          addGold(bossGold);
+          log("🏆 BOSS DEFEATED! The stairs unlock. You loot " + bossGold + " gains.");
+          grantItemDrop();
+        }
       }
       afterPlayerAction();
       return;
@@ -668,6 +1043,11 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     }
 
     if (nx === stairs.x && ny === stairs.y) {
+      if (stairsLocked && getBoss()) {
+        log("🚪 The stairs are sealed — defeat the boss first!");
+        afterPlayerAction();
+        return;
+      }
       depth++;
       log("🏆 New PR! You advance to week " + depth + " of training.");
       generateLevel(depth);
@@ -730,6 +1110,8 @@ import { onAuthChange, loadUserData } from "./firebase.js";
 
   function endGame() {
     gameOver = true;
+    autoMode = false;
+    updateAutoButton();
     var earned = Math.max(0, essence - runStartEssence);
     log("☠️ You collapsed in week " + depth + ".");
     document.getElementById("overlay-title").textContent = "You collapsed";
@@ -737,6 +1119,15 @@ import { onAuthChange, loadUserData } from "./firebase.js";
       "Weeks survived: " + depth + " · Level " + player.level + " · " + player.gold + " gains this run";
     document.getElementById("overlay-essence").textContent =
       "💎 +" + earned + " essence earned (total: " + essence + ")";
+    if (runBag.length > 0) {
+      var names = runBag.map(function (id) { return itemById(id).icon; }).join(" ");
+      runBag.forEach(function (id) { addToStash(id); });
+      document.getElementById("overlay-loot").textContent = "🎒 " + runBag.length + " item(s) added to your stash: " + names;
+    } else {
+      document.getElementById("overlay-loot").textContent = "";
+    }
+    runBag = [];
+    runLoot = [];
     var best = getHighScore();
     document.getElementById("overlay-best").textContent = "Personal record: week " + best;
     document.getElementById("overlay").classList.add("show");
@@ -754,7 +1145,7 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     if (!cell.visible) return null;
     if (player.x === x && player.y === y) return { cls: "c-player", ch: "@" };
     var m = occupied(x, y);
-    if (m) return { cls: "c-monster", ch: m.glyph };
+    if (m) return { cls: m.isBoss ? "c-boss" : "c-monster", ch: m.glyph };
     var it = itemAt(x, y);
     if (it) return { cls: "c-item", ch: it.kind === "shake" ? "!" : "$" };
     if (stairs.x === x && stairs.y === y) return { cls: "c-stairs", ch: ">" };
@@ -804,6 +1195,19 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     var pct = Math.max(0, Math.round((player.hp / player.maxHp) * 100));
     document.getElementById("hpbar-fill").style.width = pct + "%";
     document.getElementById("hpbar-label").textContent = player.hp + " / " + player.maxHp;
+
+    var boss = getBoss();
+    var bossRow = document.getElementById("boss-bar-row");
+    if (boss && grid[boss.y][boss.x].visible) {
+      bossRow.style.display = "flex";
+      var bpct = Math.max(0, Math.round((boss.hp / boss.maxHp) * 100));
+      document.getElementById("bossbar-fill").style.width = bpct + "%";
+      document.getElementById("bossbar-label").textContent = "👹 " + boss.name + " — " + boss.hp + "/" + boss.maxHp;
+    } else {
+      bossRow.style.display = "none";
+    }
+
+    document.getElementById("bag-count").textContent = "(" + runBag.length + "/" + RUN_BAG_CAP + ")";
   }
 
   function startGame() {
@@ -816,8 +1220,8 @@ import { onAuthChange, loadUserData } from "./firebase.js";
       def: base.def,
       shieldMax: base.shieldMax,
       shield: base.shieldMax,
-      crit: 0,
-      lifesteal: 0,
+      crit: base.crit,
+      lifesteal: base.lifesteal,
       goldFind: base.goldFind,
       level: 1 + heroBonus.level,
       xp: 0,
@@ -826,6 +1230,10 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     reviveAvailable = heroBonus.streak >= 3;
     runStartEssence = essence;
     pendingTalents = 0;
+    runBag = [];
+    runLoot = [];
+    autoMode = false;
+    updateAutoButton();
     depth = 1;
     messages = [];
     gameOver = false;
@@ -845,29 +1253,230 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     }
     log("You descend into the Gains Dungeon. Week 1.");
     render();
+
+    if (heroBonus.level > 0) {
+      pendingTalents = heroBonus.level;
+      turnBusy = true;
+      log("🌟 Your training level grants " + heroBonus.level + " starting talent" + (heroBonus.level === 1 ? "" : "s") + "!");
+      offerTalents(function () { render(); });
+    }
   }
+
+  // ---- AUTO-EXPLORE ----
+  function bfsPath(fromX, fromY, isGoal, avoid) {
+    var visited = {};
+    var key = function (x, y) { return x + "," + y; };
+    var queue = [{ x: fromX, y: fromY, path: [] }];
+    visited[key(fromX, fromY)] = true;
+    var dirs = [[0, -1], [0, 1], [-1, 0], [1, 0]];
+    while (queue.length) {
+      var cur = queue.shift();
+      for (var i = 0; i < dirs.length; i++) {
+        var nx = cur.x + dirs[i][0], ny = cur.y + dirs[i][1];
+        var k = key(nx, ny);
+        if (visited[k]) continue;
+        if (!inBounds(nx, ny) || grid[ny][nx].type === WALL) continue;
+        if (avoid && avoid(nx, ny)) continue;
+        visited[k] = true;
+        var newPath = cur.path.concat([[nx, ny]]);
+        if (isGoal(nx, ny)) return newPath;
+        queue.push({ x: nx, y: ny, path: newPath });
+      }
+    }
+    return null;
+  }
+
+  function adjacentNonBossMonster(x, y, boss) {
+    var dirs = [[0, -1], [0, 1], [-1, 0], [1, 0]];
+    for (var i = 0; i < dirs.length; i++) {
+      var m = occupied(x + dirs[i][0], y + dirs[i][1]);
+      if (m && (!boss || m !== boss)) return m;
+    }
+    return null;
+  }
+
+  function nearestVisibleItem(kind) {
+    var best = null, bestDist = Infinity;
+    items.forEach(function (it) {
+      if (it.kind !== kind) return;
+      if (!grid[it.y][it.x].discovered) return;
+      var d = Math.abs(it.x - player.x) + Math.abs(it.y - player.y);
+      if (d < bestDist) { bestDist = d; best = it; }
+    });
+    return best;
+  }
+
+  function nearestVisibleMonster(boss) {
+    var best = null, bestDist = Infinity;
+    monsters.forEach(function (m) {
+      if (boss && m === boss) return;
+      if (!grid[m.y][m.x].discovered) return;
+      var d = Math.abs(m.x - player.x) + Math.abs(m.y - player.y);
+      if (d < bestDist) { bestDist = d; best = m; }
+    });
+    return best;
+  }
+
+  function nearestFrontier() {
+    var best = null, bestDist = Infinity;
+    var dirs = [[0, -1], [0, 1], [-1, 0], [1, 0]];
+    for (var y = 0; y < H; y++) {
+      for (var x = 0; x < W; x++) {
+        var cell = grid[y][x];
+        if (!cell.discovered || cell.type === WALL) continue;
+        var isFrontier = false;
+        for (var i = 0; i < dirs.length; i++) {
+          var nx = x + dirs[i][0], ny = y + dirs[i][1];
+          if (inBounds(nx, ny) && !grid[ny][nx].discovered) { isFrontier = true; break; }
+        }
+        if (!isFrontier) continue;
+        var d = Math.abs(x - player.x) + Math.abs(y - player.y);
+        if (d < bestDist) { bestDist = d; best = { x: x, y: y }; }
+      }
+    }
+    return best;
+  }
+
+  function stepBesideStairs() {
+    var dirs = [[0, -1], [0, 1], [-1, 0], [1, 0]];
+    for (var i = 0; i < dirs.length; i++) {
+      var ax = stairs.x + dirs[i][0], ay = stairs.y + dirs[i][1];
+      if (inBounds(ax, ay) && grid[ay][ax].type === FLOOR) {
+        if (player.x === ax && player.y === ay) return "here";
+        return { x: ax, y: ay };
+      }
+    }
+    return null;
+  }
+
+  function autoStepToward(tx, ty, boss, stuckMessage) {
+    var avoid = function (x, y) {
+      if (boss && x === boss.x && y === boss.y) return true;
+      var m = occupied(x, y);
+      if (m && !(x === tx && y === ty)) return true;
+      return false;
+    };
+    var path = bfsPath(player.x, player.y, function (x, y) { return x === tx && y === ty; }, avoid);
+    if (!path || path.length === 0) {
+      if (boss) {
+        var avoidNoBoss = function (x, y) {
+          if (x === boss.x && y === boss.y) return false;
+          var m = occupied(x, y);
+          return m && !(x === tx && y === ty);
+        };
+        var altPath = bfsPath(player.x, player.y, function (x, y) { return x === tx && y === ty; }, avoidNoBoss);
+        if (altPath && altPath.length > 0) {
+          stopAuto("⚠️ A boss blocks the only way through — take over to fight it!");
+          return;
+        }
+      }
+      stopAuto(stuckMessage || "🤖 Auto-explore stopped — nothing reachable.");
+      return;
+    }
+    var next = path[0];
+    var dx = next[0] - player.x, dy = next[1] - player.y;
+    tryMovePlayer(dx, dy);
+    scheduleAutoTick();
+  }
+
+  function stopAuto(message) {
+    autoMode = false;
+    updateAutoButton();
+    if (message) log(message);
+    render();
+  }
+
+  function autoStep() {
+    if (!autoMode) return;
+    if (gameOver || turnBusy) { autoMode = false; updateAutoButton(); return; }
+
+    var boss = getBoss();
+
+    if (player.hp <= Math.max(3, Math.floor(player.maxHp * 0.25))) {
+      stopAuto("🤖 Auto-explore stopped — HP is low, take over!");
+      return;
+    }
+
+    var adjMonster = adjacentNonBossMonster(player.x, player.y, boss);
+    if (adjMonster) {
+      var dx = adjMonster.x - player.x, dy = adjMonster.y - player.y;
+      tryMovePlayer(dx, dy);
+      scheduleAutoTick();
+      return;
+    }
+
+    var shake = nearestVisibleItem("shake");
+    if (shake) { autoStepToward(shake.x, shake.y, boss); return; }
+
+    var monster = nearestVisibleMonster(boss);
+    if (monster) { autoStepToward(monster.x, monster.y, boss); return; }
+
+    var frontier = nearestFrontier();
+    if (frontier) { autoStepToward(frontier.x, frontier.y, boss); return; }
+
+    if (boss) {
+      stopAuto("⚠️ A boss blocks the way — take over to fight it!");
+      return;
+    }
+
+    var beside = stepBesideStairs();
+    if (beside === "here" || beside === null) {
+      stopAuto("✅ Floor cleared! Stairs are ready when you are.");
+      return;
+    }
+    autoStepToward(beside.x, beside.y, boss);
+  }
+
+  function scheduleAutoTick() {
+    if (!autoMode) return;
+    setTimeout(autoStep, AUTO_TICK_MS);
+  }
+
+  function updateAutoButton() {
+    var btn = document.getElementById("btn-auto");
+    btn.textContent = autoMode ? "⏹ Stop" : "🤖 Auto";
+    btn.classList.toggle("active", autoMode);
+  }
+
+  function canManualAct() { return !gameOver && !turnBusy && !autoMode; }
 
   document.addEventListener("keydown", function (e) {
     var handled = true;
     switch (e.key) {
-      case "ArrowUp": case "w": case "W": tryMovePlayer(0, -1); break;
-      case "ArrowDown": case "s": case "S": tryMovePlayer(0, 1); break;
-      case "ArrowLeft": case "a": case "A": tryMovePlayer(-1, 0); break;
-      case "ArrowRight": case "d": case "D": tryMovePlayer(1, 0); break;
+      case "ArrowUp": case "w": case "W": if (canManualAct()) tryMovePlayer(0, -1); break;
+      case "ArrowDown": case "s": case "S": if (canManualAct()) tryMovePlayer(0, 1); break;
+      case "ArrowLeft": case "a": case "A": if (canManualAct()) tryMovePlayer(-1, 0); break;
+      case "ArrowRight": case "d": case "D": if (canManualAct()) tryMovePlayer(1, 0); break;
       case " ":
-        if (!gameOver && !turnBusy) { monsterTurn(); render(); }
+        if (canManualAct()) { monsterTurn(); render(); }
         break;
       default: handled = false;
     }
     if (handled) e.preventDefault();
   });
 
-  document.getElementById("btn-up").addEventListener("click", function () { tryMovePlayer(0, -1); });
-  document.getElementById("btn-down").addEventListener("click", function () { tryMovePlayer(0, 1); });
-  document.getElementById("btn-left").addEventListener("click", function () { tryMovePlayer(-1, 0); });
-  document.getElementById("btn-right").addEventListener("click", function () { tryMovePlayer(1, 0); });
+  document.getElementById("btn-up").addEventListener("click", function () { if (canManualAct()) tryMovePlayer(0, -1); });
+  document.getElementById("btn-down").addEventListener("click", function () { if (canManualAct()) tryMovePlayer(0, 1); });
+  document.getElementById("btn-left").addEventListener("click", function () { if (canManualAct()) tryMovePlayer(-1, 0); });
+  document.getElementById("btn-right").addEventListener("click", function () { if (canManualAct()) tryMovePlayer(1, 0); });
   document.getElementById("btn-wait").addEventListener("click", function () {
-    if (!gameOver && !turnBusy) { monsterTurn(); render(); }
+    if (canManualAct()) { monsterTurn(); render(); }
+  });
+
+  document.getElementById("btn-auto").addEventListener("click", function () {
+    if (gameOver || turnBusy) return;
+    autoMode = !autoMode;
+    updateAutoButton();
+    if (autoMode) { log("🤖 Auto-explore engaged."); autoStep(); }
+    else render();
+  });
+
+  document.getElementById("btn-bag").addEventListener("click", function () {
+    renderBag();
+    document.getElementById("bag-overlay").classList.add("show");
+  });
+  document.getElementById("btn-bag-close").addEventListener("click", function () {
+    document.getElementById("bag-overlay").classList.remove("show");
   });
 
   document.getElementById("btn-continue").addEventListener("click", function () {
@@ -882,6 +1491,15 @@ import { onAuthChange, loadUserData } from "./firebase.js";
   });
   document.getElementById("btn-shop-back").addEventListener("click", function () {
     document.getElementById("shop-overlay").classList.remove("show");
+    showHub();
+  });
+  document.getElementById("btn-open-armory").addEventListener("click", function () {
+    document.getElementById("hub-overlay").classList.remove("show");
+    renderArmory();
+    document.getElementById("armory-overlay").classList.add("show");
+  });
+  document.getElementById("btn-armory-back").addEventListener("click", function () {
+    document.getElementById("armory-overlay").classList.remove("show");
     showHub();
   });
 
