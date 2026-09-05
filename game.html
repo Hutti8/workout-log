@@ -218,7 +218,7 @@
     <button id="btn-bag">🎒 Bag <span id="bag-count">(0/6)</span></button>
   </div>
 
-  <p id="hint">Arrow keys / WASD to move, bump into monsters to attack, Space to wait. 🔰 Shield absorbs hits before HP and refills on level up. Every 10th week guards a boss — auto-explore won't fight it for you. Find <span style="color:var(--good)">&gt;</span> to advance.</p>
+  <p id="hint">Arrow keys / WASD to move, bump into monsters to attack, Space to wait. 🔰 Shield absorbs hits before HP and refills on level up. Every 5th week guards a boss — auto-explore won't fight it for you. Find <span style="color:var(--good)">&gt;</span> to advance.</p>
 
 </div>
 
@@ -266,6 +266,9 @@
 <div id="bag-overlay" class="modal-backdrop">
   <div class="modal-box" style="max-width:380px;">
     <h2>🎒 Bag <span id="bag-title-count"></span></h2>
+    <div class="armory-slot-title" style="margin-top:0;">Equipped</div>
+    <div id="equipped-list"></div>
+    <div class="armory-slot-title">In-Run Loot</div>
     <p id="bag-empty-note">Nothing in your bag yet — boss fights drop loot here.</p>
     <div id="bag-list"></div>
     <button id="btn-bag-close" class="btn-outline">Close</button>
@@ -302,7 +305,7 @@ import { onAuthChange, loadUserData } from "./firebase.js";
   var W = 28, H = 16;
   var WALL = 0, FLOOR = 1;
   var VIEW_RADIUS = 6;
-  var BOSS_INTERVAL = 10;
+  var BOSS_INTERVAL = 5;
   var RANGED_RANGE = 6;
   var RUN_BAG_CAP = 6;
   var STASH_CAP = 30;
@@ -372,7 +375,8 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     { id: "u_cheatday", slot: "trinket", rarity: "Unique", name: "Guilty Pleasure",   icon: "🎂",  bonus: { goldFind: 25, lifesteal: 10 } },
     { id: "u_reaper",   slot: "ring",    rarity: "Unique", name: "Reaper's Snooze",   icon: "⌛",  bonus: { crit: 15, lifesteal: 8 } },
     { id: "u_plateau",  slot: "armor",   rarity: "Unique", name: "Unbreakable Wall",  icon: "🧱",  bonus: { def: 25, shield: 35 } },
-    { id: "u_burnout",  slot: "offhand", rarity: "Unique", name: "Second Wind Badge", icon: "🔥",  bonus: { hp: 35, def: 8, crit: 10 } }
+    { id: "u_burnout",  slot: "offhand", rarity: "Unique", name: "Second Wind Badge", icon: "🔥",  bonus: { hp: 35, def: 8, crit: 10 } },
+    { id: "u_gymowner", slot: "ring",    rarity: "Unique", name: "Master Key",       icon: "🔑",  bonus: { goldFind: 25, def: 8 } }
   ];
 
   var UPGRADES = [
@@ -421,10 +425,14 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     { name: "The Plateau", uniqueId: "u_plateau", theme: { floorBg: "#202020", floorFg: "#6a6a6a", wallBg: "#161616", wallFg: "#404040" }, members: [
       { role: "warrior", glyph: "🧱", hpMul: 3, atkMul: 0.8, huge: true }
     ] },
-    { name: "Burnout Trio", uniqueId: "u_burnout", theme: { floorBg: "#2a1810", floorFg: "#d0703a", wallBg: "#200f08", wallFg: "#7a4020" }, members: [
-      { role: "warrior", glyph: "💼", name: "Overtime Warrior", hpMul: 1.2, atkMul: 1.2 },
-      { role: "ranger",  glyph: "🎯", name: "Doubt Ranger",     hpMul: 0.8, atkMul: 1.0 },
-      { role: "healer",  glyph: "🗣️", name: "Excuse Healer",   hpMul: 0.6, atkMul: 0.4 }
+    { name: "The Gym Regulars", uniqueId: "u_burnout", theme: { floorBg: "#2a1810", floorFg: "#d0703a", wallBg: "#200f08", wallFg: "#7a4020" }, members: [
+      { role: "warrior", glyph: "💪", name: "Gym Bro",          hpMul: 1.2, atkMul: 1.2 },
+      { role: "ranger",  glyph: "🐰", name: "Gym Bunny",        hpMul: 0.8, atkMul: 1.0 },
+      { role: "healer",  glyph: "📋", name: "Personal Trainer", hpMul: 0.6, atkMul: 0.4 }
+    ] },
+    { name: "The Gym Owner", uniqueId: "u_gymowner", theme: { floorBg: "#0f1a1a", floorFg: "#4a8a8a", wallBg: "#0a1414", wallFg: "#2a5454" }, members: [
+      { role: "warrior", glyph: "🕴️", name: "The Gym Owner",  hpMul: 1.3, atkMul: 1.3 },
+      { role: "healer",  glyph: "🧹", name: "The Cleaning Crew", hpMul: 0.7, atkMul: 0.5 }
     ] }
   ];
 
@@ -686,7 +694,23 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     render();
   }
 
+  function renderEquippedList() {
+    document.getElementById("equipped-list").innerHTML = EQUIP_SLOTS.map(function (slot) {
+      var id = equipped[slot];
+      if (!id) {
+        return '<div class="shop-row"><div class="shop-row-info">' +
+          '<span class="shop-name" style="color:var(--text-secondary);">' + SLOT_LABELS[slot] + "</span>" +
+          '<span class="shop-desc">— empty —</span></div></div>';
+      }
+      var it = itemById(id);
+      var color = rarityColorOf(it);
+      return '<div class="shop-row"><div class="shop-row-info"><span class="shop-name" style="color:' + color + '">' + it.icon + " " + it.name + "</span>" +
+        '<span class="shop-desc"><b style="color:' + color + ';text-transform:uppercase;font-size:10.5px;">' + rarityOf(it) + "</b> · " + describeBonus(it.bonus) + " · " + SLOT_LABELS[slot] + "</span></div></div>";
+    }).join("");
+  }
+
   function renderBag() {
+    renderEquippedList();
     var count = "(" + runBag.length + "/" + RUN_BAG_CAP + ")";
     document.getElementById("bag-count").textContent = count;
     document.getElementById("bag-title-count").textContent = count;
@@ -1401,7 +1425,7 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     pendingTalents = 0;
     runBag = [];
     runLoot = [];
-    autoMode = false;
+    autoMode = true;
     updateAutoButton();
     depth = 1;
     messages = [];
@@ -1427,7 +1451,9 @@ import { onAuthChange, loadUserData } from "./firebase.js";
       pendingTalents = heroBonus.level;
       turnBusy = true;
       log("🌟 Your training level grants " + heroBonus.level + " starting talent" + (heroBonus.level === 1 ? "" : "s") + "!");
-      offerTalents(function () { render(); });
+      offerTalents(function () { render(); autoStep(); });
+    } else {
+      autoStep();
     }
   }
 
