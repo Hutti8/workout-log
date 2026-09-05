@@ -19,6 +19,7 @@
     --danger: #c0392b;
     --good: #4caf7d;
     --gold: #f0a500;
+    --shield: #6ab7ff;
   }
   html, body {
     height: 100%;
@@ -32,7 +33,7 @@
   header a { color: var(--text-secondary); text-decoration: none; font-size: 14px; }
   header .title { font-weight: 700; font-size: 18px; color: var(--col-hi); }
 
-  #hud { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; font-size: 13px; }
+  .hud-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; font-size: 13px; }
   .stat { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 4px 10px; white-space: nowrap; }
   .stat b { color: var(--text-secondary); font-weight: 500; }
 
@@ -89,11 +90,13 @@
   .modal-backdrop {
     position: fixed; inset: 0; background: rgba(0,0,0,0.75);
     display: none; align-items: center; justify-content: center; padding: 20px; z-index: 20;
+    overflow-y: auto;
   }
   .modal-backdrop.show { display: flex; }
   .modal-box {
     background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px;
     padding: 2rem; max-width: 340px; width: 100%; text-align: center;
+    margin: auto;
   }
   .modal-box h2 { color: var(--col-hi); margin-bottom: 10px; }
   .modal-box h2.danger { color: var(--danger); }
@@ -103,9 +106,33 @@
     background: var(--accent); color: #fff; font-size: 15px; font-weight: 600; cursor: pointer;
   }
   .modal-box button:hover { background: var(--accent-hover); }
+  .modal-box button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .modal-box button:disabled:hover { background: var(--accent); }
   .modal-box button.btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-primary); }
   .modal-box button.btn-outline:hover { background: rgba(255,255,255,0.05); }
   .modal-box a { text-decoration: none; }
+
+  .modal-box button.talent-option {
+    margin-top: 0; width: 100%; text-align: left; background: var(--bg-primary);
+    border: 1px solid var(--border); display: flex; flex-direction: column; gap: 2px;
+  }
+  .modal-box button.talent-option:hover { background: rgba(126,184,247,0.1); border-color: var(--col-hi); }
+  .talent-option .t-cat { font-size: 10.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--col-hi); font-weight: 700; }
+  .talent-option .t-name { font-size: 15px; font-weight: 700; }
+  .talent-option .t-desc { font-size: 12.5px; color: var(--text-secondary); font-weight: 400; }
+  #talent-options { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
+
+  .shop-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    background: var(--bg-primary); border: 1px solid var(--border); border-radius: 10px;
+    padding: 10px 12px; margin-bottom: 8px; text-align: left;
+  }
+  .shop-row-info { flex: 1; min-width: 0; }
+  .shop-name { font-weight: 700; font-size: 14px; }
+  .shop-level { font-weight: 400; color: var(--text-secondary); font-size: 12px; }
+  .shop-desc { display: block; font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+  .modal-box button.shop-buy { margin-top: 0; width: auto; padding: 8px 12px; font-size: 12.5px; white-space: nowrap; }
+  #shop-list { margin-top: 10px; }
 </style>
 </head>
 <body>
@@ -116,12 +143,17 @@
     <a href="index.html">← Workout Log</a>
   </header>
 
-  <div id="hud">
+  <div class="hud-row">
     <div id="hpbar-outer"><div id="hpbar-fill" style="width:100%"></div><div id="hpbar-label">30 / 30</div></div>
     <div class="stat"><b>Lv</b> <span id="stat-level">1</span></div>
     <div class="stat"><b>XP</b> <span id="stat-xp">0/20</span></div>
+  </div>
+  <div class="hud-row">
     <div class="stat"><b>Week</b> <span id="stat-depth">1</span></div>
-    <div class="stat"><b>💰 Gains</b> <span id="stat-gold">0</span></div>
+    <div class="stat"><b>DEF</b> <span id="stat-def">0</span></div>
+    <div class="stat"><b>🔰</b> <span id="stat-shield">0/0</span></div>
+    <div class="stat"><b>💰</b> <span id="stat-gold">0</span></div>
+    <div class="stat"><b>💎</b> <span id="stat-essence">0</span></div>
   </div>
 
   <div id="board"></div>
@@ -136,7 +168,7 @@
     <button id="btn-down">▼</button>
   </div>
 
-  <p id="hint">Arrow keys / WASD to move, bump into monsters to attack, Space to wait. Find <span style="color:var(--good)">&gt;</span> for a new PR and the next training week.</p>
+  <p id="hint">Arrow keys / WASD to move, bump into monsters to attack, Space to wait. 🔰 Shield absorbs hits before HP and refills on level up. Find <span style="color:var(--good)">&gt;</span> for a new PR and the next training week.</p>
 
 </div>
 
@@ -151,12 +183,40 @@
   </div>
 </div>
 
+<div id="hub-overlay" class="modal-backdrop">
+  <div class="modal-box" style="max-width:380px;">
+    <h2>🏰 Base Camp</h2>
+    <p id="hub-hero-summary"></p>
+    <p id="hub-essence"></p>
+    <button id="btn-start-run">⚔️ Start Run</button>
+    <button id="btn-open-shop" class="btn-outline">🛒 Permanent Upgrades</button>
+  </div>
+</div>
+
+<div id="shop-overlay" class="modal-backdrop">
+  <div class="modal-box" style="max-width:420px;">
+    <h2>🛒 Permanent Upgrades</h2>
+    <p id="shop-essence"></p>
+    <div id="shop-list"></div>
+    <button id="btn-shop-back" class="btn-outline">← Back to Base Camp</button>
+  </div>
+</div>
+
+<div id="talent-overlay" class="modal-backdrop">
+  <div class="modal-box" style="max-width:380px;">
+    <h2>🌟 Choose a Talent</h2>
+    <p>Level up! Pick one to keep for the rest of this run.</p>
+    <div id="talent-options"></div>
+  </div>
+</div>
+
 <div id="overlay" class="modal-backdrop">
   <div class="modal-box">
     <h2 id="overlay-title" class="danger">You collapsed</h2>
     <p id="overlay-stats"></p>
+    <p id="overlay-essence"></p>
     <p id="overlay-best"></p>
-    <button id="btn-restart">Start new run</button>
+    <button id="btn-continue">▶ Continue</button>
   </div>
 </div>
 
@@ -170,11 +230,38 @@ import { onAuthChange, loadUserData } from "./firebase.js";
   var WALL = 0, FLOOR = 1;
   var VIEW_RADIUS = 6;
   var HIGH_SCORE_KEY = "gains-dungeon-best-week";
+  var ESSENCE_KEY = "gains-dungeon-essence";
+  var UPGRADES_KEY = "gains-dungeon-upgrades";
 
   var grid, rooms, player, monsters, items, stairs, depth, messages, gameOver, turnBusy, reviveAvailable;
   gameOver = true; // locked until the hero is ready
 
   var heroBonus = { workouts: 0, level: 0, hp: 0, atk: 0, gold: 0, pumped: false, streak: 0 };
+
+  var essence = parseInt(localStorage.getItem(ESSENCE_KEY) || "0", 10);
+  var runStartEssence = 0;
+  var pendingTalents = 0;
+  var talentContinuation = null;
+
+  var UPGRADES = [
+    { id: "vitality",  name: "Vitality",   icon: "❤️", desc: "+8 max HP per level",       max: 10, perLevel: 8,  baseCost: 15 },
+    { id: "strength",  name: "Strength",   icon: "💪", desc: "+2 attack per level",       max: 10, perLevel: 2,  baseCost: 15 },
+    { id: "fortitude", name: "Fortitude",  icon: "🪨", desc: "+1 defense per level",      max: 10, perLevel: 1,  baseCost: 20 },
+    { id: "ward",      name: "Ward",       icon: "🔰", desc: "+10 max shield per level",  max: 10, perLevel: 10, baseCost: 20 },
+    { id: "fortune",   name: "Fortune",    icon: "🍀", desc: "+8% gold found per level",  max: 10, perLevel: 8,  baseCost: 12 }
+  ];
+
+  var TALENTS = [
+    { id: "iron_muscles", cat: "Warrior",  name: "Iron Muscles",    icon: "💪", desc: "+3 ATK",               apply: function (p) { p.atk += 3; } },
+    { id: "adrenaline",   cat: "Warrior",  name: "Adrenaline",      icon: "⚡", desc: "+8% crit chance",       apply: function (p) { p.crit += 8; } },
+    { id: "berserk",      cat: "Warrior",  name: "Berserker Rage",  icon: "🔥", desc: "+15% ATK, -1 DEF",      apply: function (p) { p.atk = Math.round(p.atk * 1.15); p.def = Math.max(0, p.def - 1); } },
+    { id: "thick_skin",   cat: "Guardian", name: "Thick Skin",      icon: "🪨", desc: "+2 DEF",                apply: function (p) { p.def += 2; } },
+    { id: "reinforced",   cat: "Guardian", name: "Reinforced Ward", icon: "🔰", desc: "+20 max shield",        apply: function (p) { p.shieldMax += 20; p.shield = p.shieldMax; } },
+    { id: "marathoner",   cat: "Guardian", name: "Marathoner",      icon: "🫀", desc: "+20 max HP",            apply: function (p) { p.maxHp += 20; p.hp += 20; } },
+    { id: "quick_hands",  cat: "Thief",    name: "Quick Hands",     icon: "🤑", desc: "+15% gold found",       apply: function (p) { p.goldFind += 15; } },
+    { id: "vampiric",     cat: "Thief",    name: "Vampiric Grip",   icon: "🩸", desc: "+8% lifesteal",         apply: function (p) { p.lifesteal += 8; } },
+    { id: "lucky",        cat: "Thief",    name: "Lucky Strikes",   icon: "🍀", desc: "+10% crit chance",      apply: function (p) { p.crit += 10; } }
+  ];
 
   var MONSTER_TYPES = [
     { glyph: "r", name: "skipped-set sprite",  hp: 5,  atk: 2, xp: 6,  minDepth: 1 },
@@ -187,6 +274,92 @@ import { onAuthChange, loadUserData } from "./firebase.js";
   function rnd(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
   function chance(p) { return Math.random() < p; }
   function num(v) { var n = parseFloat(v); return isNaN(n) ? 0 : n; }
+
+  // ---- PERMANENT META-PROGRESSION (persists across runs) ----
+  function loadUpgrades() {
+    var raw = {};
+    try { raw = JSON.parse(localStorage.getItem(UPGRADES_KEY) || "{}"); } catch (e) { raw = {}; }
+    var out = {};
+    UPGRADES.forEach(function (u) { out[u.id] = raw[u.id] || 0; });
+    return out;
+  }
+  var upgrades = loadUpgrades();
+
+  function saveEssence() { localStorage.setItem(ESSENCE_KEY, String(essence)); }
+  function saveUpgrades() { localStorage.setItem(UPGRADES_KEY, JSON.stringify(upgrades)); }
+
+  function addGold(amount) {
+    player.gold += amount;
+    essence += amount;
+    saveEssence();
+    document.getElementById("stat-essence").textContent = essence;
+  }
+
+  function computeBaseStats() {
+    return {
+      hp: 30 + heroBonus.hp + upgrades.vitality * 8,
+      atk: 4 + heroBonus.atk + upgrades.strength * 2,
+      def: 1 + upgrades.fortitude * 1,
+      shieldMax: 10 + upgrades.ward * 10,
+      goldFind: upgrades.fortune * 8
+    };
+  }
+
+  function buyUpgrade(id) {
+    var u = UPGRADES.filter(function (x) { return x.id === id; })[0];
+    if (!u) return;
+    var lvl = upgrades[id];
+    if (lvl >= u.max) return;
+    var cost = u.baseCost * (lvl + 1);
+    if (essence < cost) return;
+    essence -= cost;
+    upgrades[id] = lvl + 1;
+    saveEssence();
+    saveUpgrades();
+    renderShop();
+  }
+
+  function renderShop() {
+    document.getElementById("shop-essence").textContent = "💎 Essence: " + essence;
+    var html = UPGRADES.map(function (u) {
+      var lvl = upgrades[u.id];
+      var maxed = lvl >= u.max;
+      var cost = u.baseCost * (lvl + 1);
+      return '<div class="shop-row">' +
+        '<div class="shop-row-info">' +
+          '<span class="shop-name">' + u.icon + " " + u.name + ' <span class="shop-level">Lv ' + lvl + "/" + u.max + "</span></span>" +
+          '<span class="shop-desc">' + u.desc + "</span>" +
+        "</div>" +
+        (maxed
+          ? "<button disabled>MAX</button>"
+          : '<button class="shop-buy" data-id="' + u.id + '" ' + (essence < cost ? "disabled" : "") + ">Buy · 💎" + cost + "</button>") +
+        "</div>";
+    }).join("");
+    var list = document.getElementById("shop-list");
+    list.innerHTML = html;
+    Array.prototype.forEach.call(list.querySelectorAll(".shop-buy"), function (btn) {
+      btn.addEventListener("click", function () { buyUpgrade(btn.getAttribute("data-id")); });
+    });
+  }
+
+  function renderHub() {
+    document.getElementById("hub-essence").textContent = "💎 Essence: " + essence;
+    var base = computeBaseStats();
+    var lines = [
+      "Lv " + (1 + heroBonus.level) + " · " + base.hp + " HP · " + base.atk + " ATK · " + base.def + " DEF · 🔰" + base.shieldMax + " shield"
+    ];
+    if (heroBonus.pumped) lines.push("🔥 Pumped today — bonus attack this run.");
+    if (heroBonus.streak >= 3) lines.push("🛡 Second Wind ready (" + heroBonus.streak + "-day streak).");
+    document.getElementById("hub-hero-summary").innerHTML = lines.join("<br>");
+  }
+
+  function showHub() {
+    document.getElementById("gate-overlay").classList.remove("show");
+    document.getElementById("overlay").classList.remove("show");
+    document.getElementById("shop-overlay").classList.remove("show");
+    renderHub();
+    document.getElementById("hub-overlay").classList.add("show");
+  }
 
   // ---- HERO STATS FROM REAL WORKOUT HISTORY ----
   function computeHeroBonus(history) {
@@ -375,15 +548,71 @@ import { onAuthChange, loadUserData } from "./firebase.js";
       player.level++;
       player.maxHp += rnd(5, 8);
       player.atk += 1;
+      if (player.level % 2 === 0) player.def += 1;
       player.hp = player.maxHp;
-      log("✨ Level up! You are now level " + player.level + ".");
+      player.shield = player.shieldMax;
+      log("✨ Level up! You are now level " + player.level + ". Shield refreshed.");
+      pendingTalents++;
     }
   }
 
-  function playerDef() { return Math.floor(player.level / 3); }
+  function rollDamage(atk, def) {
+    return Math.max(1, atk + rnd(0, 2) - def);
+  }
 
-  function attack(attackerAtk, defenderDef) {
-    return Math.max(1, attackerAtk + rnd(0, 2) - defenderDef);
+  // ---- TALENT CHOICE (pauses the game between turns) ----
+  function offerTalents(continuation) {
+    talentContinuation = continuation;
+    showNextTalentOffer();
+  }
+
+  function showNextTalentOffer() {
+    var pool = TALENTS.slice();
+    var picks = [];
+    for (var i = 0; i < 3 && pool.length > 0; i++) {
+      var idx = rnd(0, pool.length - 1);
+      picks.push(pool[idx]);
+      pool.splice(idx, 1);
+    }
+    var box = document.getElementById("talent-options");
+    box.innerHTML = picks.map(function (t, i) {
+      return '<button class="talent-option" data-idx="' + i + '">' +
+        '<span class="t-cat">' + t.cat + '</span>' +
+        '<span class="t-name">' + t.icon + " " + t.name + '</span>' +
+        '<span class="t-desc">' + t.desc + "</span>" +
+        "</button>";
+    }).join("");
+    Array.prototype.forEach.call(box.querySelectorAll(".talent-option"), function (btn, i) {
+      btn.addEventListener("click", function () { pickTalent(picks[i]); });
+    });
+    document.getElementById("talent-overlay").classList.add("show");
+  }
+
+  function pickTalent(t) {
+    t.apply(player);
+    pendingTalents = Math.max(0, pendingTalents - 1);
+    log("🌟 Talent gained: " + t.name + " — " + t.desc);
+    document.getElementById("talent-overlay").classList.remove("show");
+    render();
+    if (pendingTalents > 0) {
+      showNextTalentOffer();
+    } else {
+      turnBusy = false;
+      var cont = talentContinuation;
+      talentContinuation = null;
+      if (cont) cont();
+    }
+  }
+
+  function afterPlayerAction() {
+    render();
+    if (pendingTalents > 0) {
+      turnBusy = true;
+      offerTalents(function () { monsterTurn(); render(); });
+    } else {
+      monsterTurn();
+      render();
+    }
   }
 
   function tryMovePlayer(dx, dy) {
@@ -393,16 +622,24 @@ import { onAuthChange, loadUserData } from "./firebase.js";
 
     var m = occupied(nx, ny);
     if (m) {
-      var dmg = attack(player.atk, 0);
+      var dmg = rollDamage(player.atk, 0);
+      var isCrit = player.crit > 0 && chance(player.crit / 100);
+      if (isCrit) dmg *= 2;
       m.hp -= dmg;
-      log("You hit the " + m.name + " for " + dmg + ".");
+      log((isCrit ? "💥 Critical! " : "") + "You hit the " + m.name + " for " + dmg + ".");
+      if (player.lifesteal > 0) {
+        var healAmt = Math.round(dmg * player.lifesteal / 100);
+        if (healAmt > 0 && player.hp < player.maxHp) {
+          player.hp = Math.min(player.maxHp, player.hp + healAmt);
+          log("🩸 You drain " + healAmt + " HP.");
+        }
+      }
       if (m.hp <= 0) {
         log("💀 The " + m.name + " dies.");
         monsters.splice(monsters.indexOf(m), 1);
         gainXp(m.xp);
       }
-      monsterTurn();
-      render();
+      afterPlayerAction();
       return;
     }
 
@@ -414,8 +651,8 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     if (it) {
       if (it.kind === "shake") {
         if (player.hp >= player.maxHp) {
-          var bonus = rnd(5, 10);
-          player.gold += bonus;
+          var bonus = Math.round(rnd(5, 10) * (1 + player.goldFind / 100));
+          addGold(bonus);
           log("🥤 Already at full HP — you sell the shake for " + bonus + " gains instead.");
         } else {
           var heal = Math.min(player.maxHp - player.hp, rnd(8, 15));
@@ -423,8 +660,9 @@ import { onAuthChange, loadUserData } from "./firebase.js";
           log("🥤 You down a protein shake and heal " + heal + " HP.");
         }
       } else {
-        player.gold += it.amount;
-        log("💰 You bank " + it.amount + " gains.");
+        var amt = Math.round(it.amount * (1 + player.goldFind / 100));
+        addGold(amt);
+        log("💰 You bank " + amt + " gains.");
       }
       items.splice(items.indexOf(it), 1);
     }
@@ -438,8 +676,7 @@ import { onAuthChange, loadUserData } from "./firebase.js";
       return;
     }
 
-    monsterTurn();
-    render();
+    afterPlayerAction();
   }
 
   function monsterTurn() {
@@ -451,14 +688,20 @@ import { onAuthChange, loadUserData } from "./firebase.js";
       if (!m.aggro) continue;
 
       if (Math.abs(m.x - player.x) + Math.abs(m.y - player.y) === 1) {
-        var dmg = attack(m.atk, playerDef());
-        player.hp -= dmg;
-        log("The " + m.name + " hits you for " + dmg + ".");
+        var dmg = rollDamage(m.atk, player.def);
+        var absorbed = Math.min(player.shield, dmg);
+        player.shield -= absorbed;
+        var hpDmg = dmg - absorbed;
+        player.hp -= hpDmg;
+        if (absorbed > 0 && hpDmg > 0) log("The " + m.name + " hits you for " + dmg + " (🔰" + absorbed + " absorbed).");
+        else if (absorbed > 0) log("🔰 Your shield absorbs the " + m.name + "'s attack (" + absorbed + ").");
+        else log("The " + m.name + " hits you for " + dmg + ".");
         if (player.hp <= 0) {
           if (reviveAvailable) {
             reviveAvailable = false;
             player.hp = Math.max(1, Math.floor(player.maxHp / 2));
-            log("🛡 Second Wind! Your streak saves you — back up with " + player.hp + " HP.");
+            player.shield = player.shieldMax;
+            log("🛡 Second Wind! Your streak saves you — back up with " + player.hp + " HP, shield refreshed.");
           } else {
             player.hp = 0; endGame(); return;
           }
@@ -487,10 +730,13 @@ import { onAuthChange, loadUserData } from "./firebase.js";
 
   function endGame() {
     gameOver = true;
+    var earned = Math.max(0, essence - runStartEssence);
     log("☠️ You collapsed in week " + depth + ".");
     document.getElementById("overlay-title").textContent = "You collapsed";
     document.getElementById("overlay-stats").textContent =
-      "Weeks survived: " + depth + " · Level " + player.level + " · " + player.gold + " gains";
+      "Weeks survived: " + depth + " · Level " + player.level + " · " + player.gold + " gains this run";
+    document.getElementById("overlay-essence").textContent =
+      "💎 +" + earned + " essence earned (total: " + essence + ")";
     var best = getHighScore();
     document.getElementById("overlay-best").textContent = "Personal record: week " + best;
     document.getElementById("overlay").classList.add("show");
@@ -551,36 +797,47 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     document.getElementById("stat-level").textContent = player.level;
     document.getElementById("stat-xp").textContent = player.xp + "/" + xpNeeded(player.level);
     document.getElementById("stat-depth").textContent = depth;
+    document.getElementById("stat-def").textContent = player.def;
+    document.getElementById("stat-shield").textContent = player.shield + "/" + player.shieldMax;
     document.getElementById("stat-gold").textContent = player.gold;
+    document.getElementById("stat-essence").textContent = essence;
     var pct = Math.max(0, Math.round((player.hp / player.maxHp) * 100));
     document.getElementById("hpbar-fill").style.width = pct + "%";
     document.getElementById("hpbar-label").textContent = player.hp + " / " + player.maxHp;
   }
 
   function startGame() {
-    var baseHp = 30 + heroBonus.hp;
-    var baseAtk = 4 + heroBonus.atk;
+    var base = computeBaseStats();
     player = {
       x: 0, y: 0,
-      maxHp: baseHp,
-      hp: baseHp,
-      atk: heroBonus.pumped ? Math.round(baseAtk * 1.25) : baseAtk,
+      maxHp: base.hp,
+      hp: base.hp,
+      atk: heroBonus.pumped ? Math.round(base.atk * 1.25) : base.atk,
+      def: base.def,
+      shieldMax: base.shieldMax,
+      shield: base.shieldMax,
+      crit: 0,
+      lifesteal: 0,
+      goldFind: base.goldFind,
       level: 1 + heroBonus.level,
       xp: 0,
       gold: heroBonus.gold
     };
     reviveAvailable = heroBonus.streak >= 3;
+    runStartEssence = essence;
+    pendingTalents = 0;
     depth = 1;
     messages = [];
     gameOver = false;
+    turnBusy = false;
     document.getElementById("overlay").classList.remove("show");
-    document.getElementById("gate-overlay").classList.remove("show");
+    document.getElementById("hub-overlay").classList.remove("show");
     document.getElementById("log").innerHTML = "";
     generateLevel(depth);
 
     if (heroBonus.workouts > 0) {
       log("🏋️ Your hero rises, forged from " + heroBonus.workouts + " logged workout" + (heroBonus.workouts === 1 ? "" : "s") + ".");
-      log("Lv " + player.level + " · " + player.maxHp + " HP · " + player.atk + " ATK · " + player.gold + " gains to start.");
+      log("Lv " + player.level + " · " + player.maxHp + " HP · " + player.atk + " ATK · " + player.def + " DEF · 🔰" + player.shieldMax + " shield.");
       if (heroBonus.pumped) log("🔥 Pumped! You trained today — attack is up for this run.");
       if (reviveAvailable) log("🛡 " + heroBonus.streak + "-day streak grants a Second Wind if you fall.");
     } else {
@@ -597,7 +854,9 @@ import { onAuthChange, loadUserData } from "./firebase.js";
       case "ArrowDown": case "s": case "S": tryMovePlayer(0, 1); break;
       case "ArrowLeft": case "a": case "A": tryMovePlayer(-1, 0); break;
       case "ArrowRight": case "d": case "D": tryMovePlayer(1, 0); break;
-      case " ": monsterTurn(); render(); break;
+      case " ":
+        if (!gameOver && !turnBusy) { monsterTurn(); render(); }
+        break;
       default: handled = false;
     }
     if (handled) e.preventDefault();
@@ -607,8 +866,24 @@ import { onAuthChange, loadUserData } from "./firebase.js";
   document.getElementById("btn-down").addEventListener("click", function () { tryMovePlayer(0, 1); });
   document.getElementById("btn-left").addEventListener("click", function () { tryMovePlayer(-1, 0); });
   document.getElementById("btn-right").addEventListener("click", function () { tryMovePlayer(1, 0); });
-  document.getElementById("btn-wait").addEventListener("click", function () { monsterTurn(); render(); });
-  document.getElementById("btn-restart").addEventListener("click", startGame);
+  document.getElementById("btn-wait").addEventListener("click", function () {
+    if (!gameOver && !turnBusy) { monsterTurn(); render(); }
+  });
+
+  document.getElementById("btn-continue").addEventListener("click", function () {
+    document.getElementById("overlay").classList.remove("show");
+    showHub();
+  });
+  document.getElementById("btn-start-run").addEventListener("click", function () { startGame(); });
+  document.getElementById("btn-open-shop").addEventListener("click", function () {
+    document.getElementById("hub-overlay").classList.remove("show");
+    renderShop();
+    document.getElementById("shop-overlay").classList.add("show");
+  });
+  document.getElementById("btn-shop-back").addEventListener("click", function () {
+    document.getElementById("shop-overlay").classList.remove("show");
+    showHub();
+  });
 
   // ---- AUTH GATE: pull the hero's power from the real Workout Log ----
   var heroReady = false;
@@ -616,7 +891,7 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     if (heroReady) return;
     heroReady = true;
     heroBonus = { workouts: 0, level: 0, hp: 0, atk: 0, gold: 0, pumped: false, streak: 0 };
-    startGame();
+    showHub();
   });
 
   onAuthChange(function (user) {
@@ -631,7 +906,7 @@ import { onAuthChange, loadUserData } from "./firebase.js";
       if (heroReady) return;
       heroReady = true;
       heroBonus = computeHeroBonus(data.history);
-      startGame();
+      showHub();
     }).catch(function () {
       if (heroReady) return;
       document.getElementById("gate-title").textContent = "⚠️ Couldn't load your hero";
