@@ -189,6 +189,8 @@
     <div class="stat"><b>Week</b> <span id="stat-depth">1</span></div>
     <div class="stat"><b>ATK</b> <span id="stat-atk">0</span></div>
     <div class="stat"><b>DEF</b> <span id="stat-def">0</span></div>
+    <div class="stat"><b>CRIT</b> <span id="stat-crit">0</span>%</div>
+    <div class="stat"><b>🩸</b> <span id="stat-lifesteal">0</span>%</div>
     <div class="stat"><b>🔰</b> <span id="stat-shield">0/0</span></div>
     <div class="stat"><b>💰</b> <span id="stat-gold">0</span></div>
     <div class="stat"><b>💎</b> <span id="stat-essence">0</span></div>
@@ -651,6 +653,9 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     var lines = [
       "Lv " + (1 + heroBonus.level) + " · " + base.hp + " HP · " + base.atk + " ATK · " + base.def + " DEF · 🔰" + base.shieldMax + " shield"
     ];
+    if (base.crit > 0 || base.lifesteal > 0) {
+      lines.push("💥 " + base.crit + "% crit · 🩸 " + base.lifesteal + "% lifesteal");
+    }
     var gearCount = EQUIP_SLOTS.filter(function (s) { return equipped[s]; }).length;
     lines.push("🧰 " + gearCount + "/" + EQUIP_SLOTS.length + " slots equipped · 📦 " + stash.length + "/" + STASH_CAP + " gear owned");
     if (heroBonus.pumped) lines.push("🔥 Pumped today — bonus attack this run.");
@@ -1210,6 +1215,8 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     document.getElementById("stat-depth").textContent = depth;
     document.getElementById("stat-atk").textContent = player.atk;
     document.getElementById("stat-def").textContent = player.def;
+    document.getElementById("stat-crit").textContent = player.crit;
+    document.getElementById("stat-lifesteal").textContent = player.lifesteal;
     document.getElementById("stat-shield").textContent = player.shield + "/" + player.shieldMax;
     document.getElementById("stat-gold").textContent = player.gold;
     document.getElementById("stat-essence").textContent = essence;
