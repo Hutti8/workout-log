@@ -51,9 +51,10 @@
   #hpbar-fill { height: 100%; background: linear-gradient(90deg, var(--danger), var(--good)); transition: width .15s; }
   #hpbar-label { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; }
 
-  #bossbar-outer { flex: 1 1 100%; background: var(--bg-card); border: 1px solid var(--danger); border-radius: 8px; overflow: hidden; position: relative; height: 24px; }
-  #bossbar-fill { height: 100%; background: linear-gradient(90deg, #7a0000, #e05c5c); transition: width .15s; }
-  #bossbar-label { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; }
+  #boss-bar-row { flex-direction: column; gap: 6px; }
+  .bossbar-outer { width: 100%; background: var(--bg-card); border: 1px solid var(--danger); border-radius: 8px; overflow: hidden; position: relative; height: 24px; }
+  .bossbar-fill { height: 100%; background: linear-gradient(90deg, #7a0000, #e05c5c); transition: width .15s; }
+  .bossbar-label { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; }
 
   #board {
     display: grid;
@@ -85,6 +86,12 @@
     font-size: calc(var(--cell-size, 18px) * 1.35);
     text-shadow: 0 0 6px rgba(255,92,92,0.85);
     z-index: 2; overflow: visible;
+  }
+  .c-boss-huge {
+    background: #2a1418; color: #ff5c5c; font-weight: 700;
+    font-size: calc(var(--cell-size, 18px) * 1.75);
+    text-shadow: 0 0 9px rgba(255,92,92,0.95);
+    z-index: 3; overflow: visible;
   }
 
   #log {
@@ -182,9 +189,7 @@
     <div class="stat"><b>Lv</b> <span id="stat-level">1</span></div>
     <div class="stat"><b>XP</b> <span id="stat-xp">0/20</span></div>
   </div>
-  <div class="hud-row" id="boss-bar-row" style="display:none;">
-    <div id="bossbar-outer"><div id="bossbar-fill" style="width:100%"></div><div id="bossbar-label"></div></div>
-  </div>
+  <div class="hud-row" id="boss-bar-row" style="display:none;"></div>
   <div class="hud-row">
     <div class="stat"><b>Week</b> <span id="stat-depth">1</span></div>
     <div class="stat"><b>ATK</b> <span id="stat-atk">0</span></div>
@@ -298,6 +303,7 @@ import { onAuthChange, loadUserData } from "./firebase.js";
   var WALL = 0, FLOOR = 1;
   var VIEW_RADIUS = 6;
   var BOSS_INTERVAL = 10;
+  var RANGED_RANGE = 6;
   var RUN_BAG_CAP = 6;
   var STASH_CAP = 30;
   var AUTO_TICK_MS = 300;
@@ -309,6 +315,7 @@ import { onAuthChange, loadUserData } from "./firebase.js";
   var EQUIPPED_KEY = "gains-dungeon-equipped";
 
   var grid, rooms, player, monsters, items, stairs, depth, messages, gameOver, turnBusy, reviveAvailable;
+  var currentArena = null, currentArenaTheme = null;
   gameOver = true; // locked until the hero is ready
 
   var heroBonus = { workouts: 0, level: 0, hp: 0, atk: 0, gold: 0, pumped: false, streak: 0 };
@@ -380,7 +387,30 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     { glyph: "T", name: "rest day troll",      hp: 26, atk: 7, xp: 32, minDepth: 5 }
   ];
 
-  var BOSS_NAMES = ["Deadline Demon", "Rest Day Reaper", "The Snooze Colossus", "Cheat Day Kraken", "The Plateau"];
+  var BOSS_TIERS = [
+    { name: "Deadline Demon", theme: { floorBg: "#2a1414", floorFg: "#7a4040", wallBg: "#200f0f", wallFg: "#4a2424" }, members: [
+      { role: "warrior", glyph: "👹", hpMul: 1, atkMul: 1 }
+    ] },
+    { name: "The Snooze Colossus", theme: { floorBg: "#16182a", floorFg: "#4a4f7a", wallBg: "#101224", wallFg: "#303456" }, members: [
+      { role: "warrior", glyph: "🗿", hpMul: 2.2, atkMul: 1.3, huge: true }
+    ] },
+    { name: "Cheat Day Squad", theme: { floorBg: "#2a1c10", floorFg: "#a06830", wallBg: "#201408", wallFg: "#6b4620" }, members: [
+      { role: "warrior", glyph: "🍔", name: "Grease Warrior", hpMul: 1.1, atkMul: 1.1 },
+      { role: "ranger",  glyph: "🍬", name: "Sugar Ranger",   hpMul: 0.7, atkMul: 0.9 },
+      { role: "healer",  glyph: "💊", name: "Guilt Healer",   hpMul: 0.6, atkMul: 0.4 }
+    ] },
+    { name: "Rest Day Reaper", theme: { floorBg: "#1c1428", floorFg: "#6a4a8a", wallBg: "#140e1e", wallFg: "#443062" }, members: [
+      { role: "ranger", glyph: "⏰", hpMul: 1.4, atkMul: 1.2 }
+    ] },
+    { name: "The Plateau", theme: { floorBg: "#202020", floorFg: "#6a6a6a", wallBg: "#161616", wallFg: "#404040" }, members: [
+      { role: "warrior", glyph: "🧱", hpMul: 3, atkMul: 0.8, huge: true }
+    ] },
+    { name: "Burnout Trio", theme: { floorBg: "#2a1810", floorFg: "#d0703a", wallBg: "#200f08", wallFg: "#7a4020" }, members: [
+      { role: "warrior", glyph: "💼", name: "Overtime Warrior", hpMul: 1.2, atkMul: 1.2 },
+      { role: "ranger",  glyph: "🎯", name: "Doubt Ranger",     hpMul: 0.8, atkMul: 1.0 },
+      { role: "healer",  glyph: "🗣️", name: "Excuse Healer",   hpMul: 0.6, atkMul: 0.4 }
+    ] }
+  ];
 
   function rnd(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
   function chance(p) { return Math.random() < p; }
@@ -761,6 +791,8 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     grid = newGrid();
     rooms = [];
     var isBossLevel = d % BOSS_INTERVAL === 0;
+    var bossTier = isBossLevel ? Math.floor(d / BOSS_INTERVAL) - 1 : -1;
+    var tierDef = isBossLevel ? BOSS_TIERS[bossTier % BOSS_TIERS.length] : null;
 
     // Reserve the boss arena's footprint FIRST (against an empty map) so it
     // gets first pick of space, before the small rooms fragment everything.
@@ -802,6 +834,17 @@ import { onAuthChange, loadUserData } from "./firebase.js";
       carveCorridor(Math.floor(beforeArena.x + beforeArena.w / 2), Math.floor(beforeArena.y + beforeArena.h / 2),
                      Math.floor(arenaReserved.x + arenaReserved.w / 2), Math.floor(arenaReserved.y + arenaReserved.h / 2));
       rooms.push(arenaReserved);
+      currentArena = arenaReserved;
+      currentArenaTheme = tierDef.theme;
+      for (var ay = arenaReserved.y; ay < arenaReserved.y + arenaReserved.h; ay++) {
+        for (var ax = arenaReserved.x; ax < arenaReserved.x + arenaReserved.w; ax++) {
+          grid[ay][ax].discovered = true;
+          grid[ay][ax].visible = true;
+        }
+      }
+    } else {
+      currentArena = null;
+      currentArenaTheme = null;
     }
 
     var last = rooms[rooms.length - 1];
@@ -815,19 +858,31 @@ import { onAuthChange, loadUserData } from "./firebase.js";
 
     if (isBossLevel) {
       stairsLocked = true;
-      var bossTier = Math.floor(d / BOSS_INTERVAL) - 1;
       var bossScale = 1 + bossTier * 0.7;
-      var bossHp = Math.round(60 * bossScale);
-      var bx = Math.floor(last.x + last.w / 2) - 2;
-      var by = Math.floor(last.y + last.h / 2);
-      bx = Math.max(last.x + 1, Math.min(last.x + last.w - 2, bx));
-      if (bx === stairs.x && by === stairs.y) bx = Math.max(last.x + 1, bx - 1);
-      monsters.push({
-        x: bx, y: by, glyph: "👹", name: BOSS_NAMES[bossTier % BOSS_NAMES.length],
-        hp: bossHp, maxHp: bossHp, atk: Math.round(9 * bossScale), xp: 80 * (bossTier + 1),
-        aggro: true, isBoss: true
+      var baseBossHp = 60, baseBossAtk = 9;
+      var usedSpots = [];
+      tierDef.members.forEach(function (mem) {
+        var mx, my, tries = 0;
+        do {
+          mx = rnd(last.x + 1, last.x + last.w - 2);
+          my = rnd(last.y + 1, last.y + last.h - 2);
+          tries++;
+        } while (tries < 60 && (
+          (mx === player.x && my === player.y) ||
+          (mx === stairs.x && my === stairs.y) ||
+          occupied(mx, my) ||
+          usedSpots.some(function (s) { return Math.abs(s.x - mx) + Math.abs(s.y - my) < 2; })
+        ));
+        usedSpots.push({ x: mx, y: my });
+        var hp = Math.round(baseBossHp * bossScale * mem.hpMul);
+        monsters.push({
+          x: mx, y: my, glyph: mem.glyph, name: mem.name || tierDef.name,
+          hp: hp, maxHp: hp, atk: Math.round(baseBossAtk * bossScale * mem.atkMul),
+          xp: Math.round(80 * (bossTier + 1) / tierDef.members.length),
+          aggro: true, isBoss: true, role: mem.role, huge: !!mem.huge
+        });
       });
-      var numMinions = 2;
+      var numMinions = tierDef.members.length > 1 ? 0 : 2;
       for (var bi = 0; bi < numMinions; bi++) {
         var mx2 = rnd(last.x, last.x + last.w - 1), my2 = rnd(last.y, last.y + last.h - 1);
         if ((mx2 === player.x && my2 === player.y) || (mx2 === stairs.x && my2 === stairs.y) || occupied(mx2, my2)) continue;
@@ -877,9 +932,12 @@ import { onAuthChange, loadUserData } from "./firebase.js";
   }
   function inBounds(x, y) { return x >= 0 && y >= 0 && x < W && y < H; }
   function isWall(x, y) { return !inBounds(x, y) || grid[y][x].type === WALL; }
-  function getBoss() {
-    for (var i = 0; i < monsters.length; i++) if (monsters[i].isBoss) return monsters[i];
-    return null;
+  function getBosses() {
+    return monsters.filter(function (m) { return m.isBoss; });
+  }
+  function isBossTile(x, y) {
+    for (var i = 0; i < monsters.length; i++) if (monsters[i].isBoss && monsters[i].x === x && monsters[i].y === y) return true;
+    return false;
   }
 
   function bresenham(x0, y0, x1, y1) {
@@ -912,6 +970,14 @@ import { onAuthChange, loadUserData } from "./firebase.js";
         var dist = Math.hypot(x2 - px, y2 - py);
         if (dist > VIEW_RADIUS) continue;
         if (hasLOS(px, py, x2, y2)) { grid[y2][x2].visible = true; grid[y2][x2].discovered = true; }
+      }
+    }
+    if (currentArena) {
+      for (var ay = currentArena.y; ay < currentArena.y + currentArena.h; ay++) {
+        for (var ax = currentArena.x; ax < currentArena.x + currentArena.w; ax++) {
+          grid[ay][ax].visible = true;
+          grid[ay][ax].discovered = true;
+        }
       }
     }
   }
@@ -1026,11 +1092,16 @@ import { onAuthChange, loadUserData } from "./firebase.js";
         monsters.splice(monsters.indexOf(m), 1);
         gainXp(m.xp);
         if (m.isBoss) {
-          stairsLocked = false;
-          var bossGold = 60 + depth * 8;
-          addGold(bossGold);
-          log("🏆 BOSS DEFEATED! The stairs unlock. You loot " + bossGold + " gains.");
-          grantItemDrop();
+          var remainingBosses = getBosses().length;
+          if (remainingBosses === 0) {
+            stairsLocked = false;
+            var bossGold = 60 + depth * 8;
+            addGold(bossGold);
+            log("🏆 BOSS DEFEATED! The stairs unlock. You loot " + bossGold + " gains.");
+            grantItemDrop();
+          } else {
+            log("⚔️ " + remainingBosses + " more foe" + (remainingBosses === 1 ? "" : "s") + " to go!");
+          }
         }
       }
       afterPlayerAction();
@@ -1062,7 +1133,7 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     }
 
     if (nx === stairs.x && ny === stairs.y) {
-      if (stairsLocked && getBoss()) {
+      if (stairsLocked && getBosses().length > 0) {
         log("🚪 The stairs are sealed — defeat the boss first!");
         afterPlayerAction();
         return;
@@ -1078,6 +1149,47 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     afterPlayerAction();
   }
 
+  function performMonsterAttack(m, ranged) {
+    var raw = m.atk + rnd(0, 2);
+    var dmg = Math.max(1, raw - player.def);
+    var defBlocked = raw - dmg;
+    var absorbed = Math.min(player.shield, dmg);
+    player.shield -= absorbed;
+    var hpDmg = dmg - absorbed;
+    player.hp -= hpDmg;
+    var msg = (ranged ? "🏹 " : "") + "The " + m.name + " " + (ranged ? "shoots you for" : "attacks for") + " " + raw;
+    if (defBlocked > 0) msg += " (🪨" + defBlocked + " blocked by DEF)";
+    msg += " → " + dmg + " dmg";
+    if (absorbed > 0 && hpDmg > 0) msg += " (🔰" + absorbed + " absorbed, " + hpDmg + " to HP)";
+    else if (absorbed > 0) msg += " (🔰 fully absorbed by shield)";
+    else msg += " to HP";
+    log(msg);
+    if (player.hp <= 0) {
+      if (reviveAvailable) {
+        reviveAvailable = false;
+        player.hp = Math.max(1, Math.floor(player.maxHp / 2));
+        player.shield = player.shieldMax;
+        log("🛡 Second Wind! Your streak saves you — back up with " + player.hp + " HP, shield refreshed.");
+      } else {
+        player.hp = 0; endGame();
+      }
+    }
+  }
+
+  function healerAct(m) {
+    var best = null, bestMissing = 0;
+    monsters.forEach(function (ally) {
+      if (ally === m || !ally.isBoss) return;
+      var missing = ally.maxHp - ally.hp;
+      if (missing > bestMissing) { bestMissing = missing; best = ally; }
+    });
+    if (!best) return false;
+    var healAmt = Math.min(bestMissing, Math.round(best.maxHp * 0.25) + 5);
+    best.hp += healAmt;
+    log("💉 The " + m.name + " heals the " + best.name + " for " + healAmt + " HP.");
+    return true;
+  }
+
   function monsterTurn() {
     if (gameOver) return;
     for (var i = monsters.length - 1; i >= 0; i--) {
@@ -1086,32 +1198,18 @@ import { onAuthChange, loadUserData } from "./firebase.js";
       if (!m.aggro && dist <= VIEW_RADIUS && hasLOS(m.x, m.y, player.x, player.y)) m.aggro = true;
       if (!m.aggro) continue;
 
-      if (Math.abs(m.x - player.x) + Math.abs(m.y - player.y) === 1) {
-        var raw = m.atk + rnd(0, 2);
-        var dmg = Math.max(1, raw - player.def);
-        var defBlocked = raw - dmg;
-        var absorbed = Math.min(player.shield, dmg);
-        player.shield -= absorbed;
-        var hpDmg = dmg - absorbed;
-        player.hp -= hpDmg;
-        var msg = "The " + m.name + " attacks for " + raw;
-        if (defBlocked > 0) msg += " (🪨" + defBlocked + " blocked by DEF)";
-        msg += " → " + dmg + " dmg";
-        if (absorbed > 0 && hpDmg > 0) msg += " (🔰" + absorbed + " absorbed, " + hpDmg + " to HP)";
-        else if (absorbed > 0) msg += " (🔰 fully absorbed by shield)";
-        else msg += " to HP";
-        log(msg);
-        if (player.hp <= 0) {
-          if (reviveAvailable) {
-            reviveAvailable = false;
-            player.hp = Math.max(1, Math.floor(player.maxHp / 2));
-            player.shield = player.shieldMax;
-            log("🛡 Second Wind! Your streak saves you — back up with " + player.hp + " HP, shield refreshed.");
-          } else {
-            player.hp = 0; endGame(); return;
-          }
+      var adjacent = Math.abs(m.x - player.x) + Math.abs(m.y - player.y) === 1;
+
+      if (m.role === "healer") {
+        if (healerAct(m)) continue;
+      } else {
+        var cheb = Math.max(Math.abs(m.x - player.x), Math.abs(m.y - player.y));
+        var canRanged = m.role === "ranger" && !adjacent && cheb <= RANGED_RANGE && hasLOS(m.x, m.y, player.x, player.y);
+        if (adjacent || canRanged) {
+          performMonsterAttack(m, canRanged);
+          if (gameOver) return;
+          continue;
         }
-        continue;
       }
 
       var dx = player.x - m.x, dy = player.y - m.y;
@@ -1170,7 +1268,7 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     if (!cell.visible) return null;
     if (player.x === x && player.y === y) return { cls: "c-player", ch: "@" };
     var m = occupied(x, y);
-    if (m) return { cls: m.isBoss ? "c-boss" : "c-monster", ch: m.glyph };
+    if (m) return { cls: m.isBoss ? (m.huge ? "c-boss-huge" : "c-boss") : "c-monster", ch: m.glyph };
     var it = itemAt(x, y);
     if (it) return { cls: "c-item", ch: it.kind === "shake" ? "!" : "$" };
     if (stairs.x === x && stairs.y === y) return { cls: "c-stairs", ch: ">" };
@@ -1197,7 +1295,15 @@ import { onAuthChange, loadUserData } from "./firebase.js";
         if (!cell.discovered) { html += '<div class="cell c-hidden"></div>'; continue; }
         var top = glyphClassAt(x, y, cell);
         if (top) { html += '<div class="cell ' + top.cls + '">' + top.ch + "</div>"; continue; }
-        if (cell.visible) {
+        var inArena = currentArenaTheme && currentArena &&
+          x >= currentArena.x && x < currentArena.x + currentArena.w &&
+          y >= currentArena.y && y < currentArena.y + currentArena.h;
+        if (inArena) {
+          var t = currentArenaTheme;
+          html += cell.type === WALL
+            ? '<div class="cell" style="background:' + t.wallBg + ';color:' + t.wallFg + '">#</div>'
+            : '<div class="cell" style="background:' + t.floorBg + ';color:' + t.floorFg + '">.</div>';
+        } else if (cell.visible) {
           html += cell.type === WALL
             ? '<div class="cell c-visible-wall">#</div>'
             : '<div class="cell c-visible-floor">.</div>';
@@ -1224,13 +1330,16 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     document.getElementById("hpbar-fill").style.width = pct + "%";
     document.getElementById("hpbar-label").textContent = player.hp + " / " + player.maxHp;
 
-    var boss = getBoss();
+    var visibleBosses = getBosses().filter(function (b) { return grid[b.y][b.x].visible; });
     var bossRow = document.getElementById("boss-bar-row");
-    if (boss && grid[boss.y][boss.x].visible) {
+    if (visibleBosses.length > 0) {
       bossRow.style.display = "flex";
-      var bpct = Math.max(0, Math.round((boss.hp / boss.maxHp) * 100));
-      document.getElementById("bossbar-fill").style.width = bpct + "%";
-      document.getElementById("bossbar-label").textContent = "👹 " + boss.name + " — " + boss.hp + "/" + boss.maxHp;
+      bossRow.innerHTML = visibleBosses.map(function (b) {
+        var bpct = Math.max(0, Math.round((b.hp / b.maxHp) * 100));
+        var roleIcon = b.role === "ranger" ? "🏹" : b.role === "healer" ? "💉" : "👹";
+        return '<div class="bossbar-outer"><div class="bossbar-fill" style="width:' + bpct + '%"></div>' +
+          '<div class="bossbar-label">' + roleIcon + " " + b.name + " — " + b.hp + "/" + b.maxHp + "</div></div>";
+      }).join("");
     } else {
       bossRow.style.display = "none";
     }
@@ -1314,11 +1423,11 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     return null;
   }
 
-  function adjacentNonBossMonster(x, y, boss) {
+  function adjacentNonBossMonster(x, y) {
     var dirs = [[0, -1], [0, 1], [-1, 0], [1, 0]];
     for (var i = 0; i < dirs.length; i++) {
       var m = occupied(x + dirs[i][0], y + dirs[i][1]);
-      if (m && (!boss || m !== boss)) return m;
+      if (m && !m.isBoss) return m;
     }
     return null;
   }
@@ -1334,10 +1443,10 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     return best;
   }
 
-  function nearestVisibleMonster(boss) {
+  function nearestVisibleMonster() {
     var best = null, bestDist = Infinity;
     monsters.forEach(function (m) {
-      if (boss && m === boss) return;
+      if (m.isBoss) return;
       if (!grid[m.y][m.x].discovered) return;
       var d = Math.abs(m.x - player.x) + Math.abs(m.y - player.y);
       if (d < bestDist) { bestDist = d; best = m; }
@@ -1377,22 +1486,20 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     return null;
   }
 
-  function autoStepToward(tx, ty, boss, stuckMessage) {
+  function autoStepToward(tx, ty, stuckMessage) {
+    // Non-boss monsters are NOT avoided here: stepping onto an occupied tile
+    // just attacks it (tryMovePlayer handles that), which is exactly "auto
+    // fights its way to the target" — boss tiles are the only true obstacle.
     var avoid = function (x, y) {
       if ((x !== tx || y !== ty) && x === stairs.x && y === stairs.y) return true;
-      if (boss && x === boss.x && y === boss.y) return true;
-      var m = occupied(x, y);
-      if (m && !(x === tx && y === ty)) return true;
+      if ((x !== tx || y !== ty) && isBossTile(x, y)) return true;
       return false;
     };
     var path = bfsPath(player.x, player.y, function (x, y) { return x === tx && y === ty; }, avoid);
     if (!path || path.length === 0) {
-      if (boss) {
+      if (getBosses().length > 0) {
         var avoidNoBoss = function (x, y) {
-          if ((x !== tx || y !== ty) && x === stairs.x && y === stairs.y) return true;
-          if (x === boss.x && y === boss.y) return false;
-          var m = occupied(x, y);
-          return m && !(x === tx && y === ty);
+          return (x !== tx || y !== ty) && x === stairs.x && y === stairs.y;
         };
         var altPath = bfsPath(player.x, player.y, function (x, y) { return x === tx && y === ty; }, avoidNoBoss);
         if (altPath && altPath.length > 0) {
@@ -1420,14 +1527,12 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     if (!autoMode) return;
     if (gameOver || turnBusy) { autoMode = false; updateAutoButton(); return; }
 
-    var boss = getBoss();
-
     if (player.hp <= Math.max(3, Math.floor(player.maxHp * 0.25))) {
       stopAuto("🤖 Auto-explore stopped — HP is low, take over!");
       return;
     }
 
-    var adjMonster = adjacentNonBossMonster(player.x, player.y, boss);
+    var adjMonster = adjacentNonBossMonster(player.x, player.y);
     if (adjMonster) {
       var dx = adjMonster.x - player.x, dy = adjMonster.y - player.y;
       tryMovePlayer(dx, dy);
@@ -1436,15 +1541,15 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     }
 
     var item = nearestVisibleItem();
-    if (item) { autoStepToward(item.x, item.y, boss); return; }
+    if (item) { autoStepToward(item.x, item.y); return; }
 
-    var monster = nearestVisibleMonster(boss);
-    if (monster) { autoStepToward(monster.x, monster.y, boss); return; }
+    var monster = nearestVisibleMonster();
+    if (monster) { autoStepToward(monster.x, monster.y); return; }
 
     var frontier = nearestFrontier();
-    if (frontier) { autoStepToward(frontier.x, frontier.y, boss); return; }
+    if (frontier) { autoStepToward(frontier.x, frontier.y); return; }
 
-    if (boss) {
+    if (getBosses().length > 0) {
       stopAuto("⚠️ A boss blocks the way — take over to fight it!");
       return;
     }
@@ -1454,7 +1559,7 @@ import { onAuthChange, loadUserData } from "./firebase.js";
       stopAuto("✅ Floor cleared! Stairs are ready when you are.");
       return;
     }
-    autoStepToward(beside.x, beside.y, boss);
+    autoStepToward(beside.x, beside.y);
   }
 
   function scheduleAutoTick() {
