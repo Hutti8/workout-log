@@ -332,6 +332,11 @@ import { onAuthChange, loadUserData } from "./firebase.js";
   var EQUIP_SLOTS = ["weapon", "offhand", "armor", "ring", "trinket"];
   var SLOT_LABELS = { weapon: "🗡️ Weapon", offhand: "🛡️ Off-hand", armor: "🎽 Armor", ring: "💍 Ring", trinket: "🔮 Trinket" };
 
+  var TIER_RARITY_NAMES = ["Common", "Rare", "Epic", "Legendary"];
+  var RARITY_COLORS = { Common: "#b9bec7", Rare: "#4da3ff", Epic: "#b366ff", Legendary: "#ffb020", Unique: "#2dd4bf" };
+  function rarityOf(it) { return it.rarity || TIER_RARITY_NAMES[(it.tier || 1) - 1] || "Common"; }
+  function rarityColorOf(it) { return RARITY_COLORS[rarityOf(it)] || RARITY_COLORS.Common; }
+
   var ITEM_CATALOG = [
     { id: "w_dumbbell",   slot: "weapon",  tier: 1, name: "Wooden Dumbbell",   icon: "🏋️", cost: 20,  bonus: { atk: 2 } },
     { id: "w_barbell",    slot: "weapon",  tier: 2, name: "Iron Barbell",      icon: "🏋️", cost: 60,  bonus: { atk: 5 } },
@@ -357,6 +362,17 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     { id: "t_preworkout", slot: "trinket", tier: 2, name: "Pre-Workout Vial", icon: "⚗️", cost: 60,  bonus: { crit: 10 } },
     { id: "t_roller",     slot: "trinket", tier: 3, name: "Foam Roller",       icon: "🧻", cost: 130, bonus: { shield: 15 } },
     { id: "t_trophy",     slot: "trinket", tier: 4, name: "Golden Trophy",     icon: "🏆", cost: 250, bonus: { atk: 8, def: 8 } }
+  ];
+
+  // Boss-exclusive gear: never sold in the Armory, only ever dropped by the
+  // matching boss tier (one signature unique per tier).
+  var UNIQUE_ITEMS = [
+    { id: "u_deadline", slot: "weapon",  rarity: "Unique", name: "Deadline's Edge",   icon: "⚔️",  bonus: { atk: 18, crit: 12 } },
+    { id: "u_colossus", slot: "armor",   rarity: "Unique", name: "Colossus Plating",  icon: "🗿",  bonus: { def: 18, hp: 30, shield: 15 } },
+    { id: "u_cheatday", slot: "trinket", rarity: "Unique", name: "Guilty Pleasure",   icon: "🎂",  bonus: { goldFind: 25, lifesteal: 10 } },
+    { id: "u_reaper",   slot: "ring",    rarity: "Unique", name: "Reaper's Snooze",   icon: "⌛",  bonus: { crit: 15, lifesteal: 8 } },
+    { id: "u_plateau",  slot: "armor",   rarity: "Unique", name: "Unbreakable Wall",  icon: "🧱",  bonus: { def: 25, shield: 35 } },
+    { id: "u_burnout",  slot: "offhand", rarity: "Unique", name: "Second Wind Badge", icon: "🔥",  bonus: { hp: 35, def: 8, crit: 10 } }
   ];
 
   var UPGRADES = [
@@ -388,24 +404,24 @@ import { onAuthChange, loadUserData } from "./firebase.js";
   ];
 
   var BOSS_TIERS = [
-    { name: "Deadline Demon", theme: { floorBg: "#2a1414", floorFg: "#7a4040", wallBg: "#200f0f", wallFg: "#4a2424" }, members: [
+    { name: "Deadline Demon", uniqueId: "u_deadline", theme: { floorBg: "#2a1414", floorFg: "#7a4040", wallBg: "#200f0f", wallFg: "#4a2424" }, members: [
       { role: "warrior", glyph: "👹", hpMul: 1, atkMul: 1 }
     ] },
-    { name: "The Snooze Colossus", theme: { floorBg: "#16182a", floorFg: "#4a4f7a", wallBg: "#101224", wallFg: "#303456" }, members: [
+    { name: "The Snooze Colossus", uniqueId: "u_colossus", theme: { floorBg: "#16182a", floorFg: "#4a4f7a", wallBg: "#101224", wallFg: "#303456" }, members: [
       { role: "warrior", glyph: "🗿", hpMul: 2.2, atkMul: 1.3, huge: true }
     ] },
-    { name: "Cheat Day Squad", theme: { floorBg: "#2a1c10", floorFg: "#a06830", wallBg: "#201408", wallFg: "#6b4620" }, members: [
+    { name: "Cheat Day Squad", uniqueId: "u_cheatday", theme: { floorBg: "#2a1c10", floorFg: "#a06830", wallBg: "#201408", wallFg: "#6b4620" }, members: [
       { role: "warrior", glyph: "🍔", name: "Grease Warrior", hpMul: 1.1, atkMul: 1.1 },
       { role: "ranger",  glyph: "🍬", name: "Sugar Ranger",   hpMul: 0.7, atkMul: 0.9 },
       { role: "healer",  glyph: "💊", name: "Guilt Healer",   hpMul: 0.6, atkMul: 0.4 }
     ] },
-    { name: "Rest Day Reaper", theme: { floorBg: "#1c1428", floorFg: "#6a4a8a", wallBg: "#140e1e", wallFg: "#443062" }, members: [
+    { name: "Rest Day Reaper", uniqueId: "u_reaper", theme: { floorBg: "#1c1428", floorFg: "#6a4a8a", wallBg: "#140e1e", wallFg: "#443062" }, members: [
       { role: "ranger", glyph: "⏰", hpMul: 1.4, atkMul: 1.2 }
     ] },
-    { name: "The Plateau", theme: { floorBg: "#202020", floorFg: "#6a6a6a", wallBg: "#161616", wallFg: "#404040" }, members: [
+    { name: "The Plateau", uniqueId: "u_plateau", theme: { floorBg: "#202020", floorFg: "#6a6a6a", wallBg: "#161616", wallFg: "#404040" }, members: [
       { role: "warrior", glyph: "🧱", hpMul: 3, atkMul: 0.8, huge: true }
     ] },
-    { name: "Burnout Trio", theme: { floorBg: "#2a1810", floorFg: "#d0703a", wallBg: "#200f08", wallFg: "#7a4020" }, members: [
+    { name: "Burnout Trio", uniqueId: "u_burnout", theme: { floorBg: "#2a1810", floorFg: "#d0703a", wallBg: "#200f08", wallFg: "#7a4020" }, members: [
       { role: "warrior", glyph: "💼", name: "Overtime Warrior", hpMul: 1.2, atkMul: 1.2 },
       { role: "ranger",  glyph: "🎯", name: "Doubt Ranger",     hpMul: 0.8, atkMul: 1.0 },
       { role: "healer",  glyph: "🗣️", name: "Excuse Healer",   hpMul: 0.6, atkMul: 0.4 }
@@ -450,6 +466,7 @@ import { onAuthChange, loadUserData } from "./firebase.js";
 
   function itemById(id) {
     for (var i = 0; i < ITEM_CATALOG.length; i++) if (ITEM_CATALOG[i].id === id) return ITEM_CATALOG[i];
+    for (var j = 0; j < UNIQUE_ITEMS.length; j++) if (UNIQUE_ITEMS[j].id === id) return UNIQUE_ITEMS[j];
     return null;
   }
   function ownsItem(id) { return stash.indexOf(id) !== -1; }
@@ -570,23 +587,30 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     renderHub();
   }
 
+  function renderGearRow(it, slot) {
+    var owned = ownsItem(it.id);
+    var isEquipped = equipped[slot] === it.id;
+    var rarity = rarityOf(it);
+    var color = rarityColorOf(it);
+    var action;
+    if (isEquipped) action = '<button class="armory-unequip" data-slot="' + slot + '">Unequip</button>';
+    else if (owned) action = '<button class="armory-equip" data-id="' + it.id + '" data-slot="' + slot + '">Equip</button>';
+    else if (rarity === "Unique") action = '<span style="font-size:11px;color:var(--text-secondary);white-space:nowrap;padding-left:8px;">🔒 Boss loot</span>';
+    else action = '<button class="armory-buy" data-id="' + it.id + '" data-slot="' + slot + '" ' + (essence < it.cost ? "disabled" : "") + ">Buy · 💎" + it.cost + "</button>";
+    return '<div class="shop-row' + (isEquipped ? " equipped" : "") + '">' +
+      '<div class="shop-row-info"><span class="shop-name" style="color:' + color + '">' + it.icon + " " + it.name + "</span>" +
+      '<span class="shop-desc"><b style="color:' + color + ';text-transform:uppercase;font-size:10.5px;">' + rarity + "</b> · " + describeBonus(it.bonus) + "</span></div>" + action + "</div>";
+  }
+
   function renderArmory() {
     document.getElementById("armory-essence").textContent = "💎 Essence: " + essence;
     var html = "";
     EQUIP_SLOTS.forEach(function (slot) {
       var slotItems = ITEM_CATALOG.filter(function (it) { return it.slot === slot; }).sort(function (a, b) { return a.tier - b.tier; });
+      var slotUniques = UNIQUE_ITEMS.filter(function (it) { return it.slot === slot; });
       html += '<div class="armory-slot-title">' + SLOT_LABELS[slot] + "</div>";
-      html += slotItems.map(function (it) {
-        var owned = ownsItem(it.id);
-        var isEquipped = equipped[slot] === it.id;
-        var action;
-        if (isEquipped) action = '<button class="armory-unequip" data-slot="' + slot + '">Unequip</button>';
-        else if (owned) action = '<button class="armory-equip" data-id="' + it.id + '" data-slot="' + slot + '">Equip</button>';
-        else action = '<button class="armory-buy" data-id="' + it.id + '" data-slot="' + slot + '" ' + (essence < it.cost ? "disabled" : "") + ">Buy · 💎" + it.cost + "</button>";
-        return '<div class="shop-row' + (isEquipped ? " equipped" : "") + '">' +
-          '<div class="shop-row-info"><span class="shop-name">' + it.icon + " " + it.name + '</span>' +
-          '<span class="shop-desc">' + describeBonus(it.bonus) + "</span></div>" + action + "</div>";
-      }).join("");
+      html += slotItems.map(function (it) { return renderGearRow(it, slot); }).join("");
+      html += slotUniques.map(function (it) { return renderGearRow(it, slot); }).join("");
     });
     var list = document.getElementById("armory-list");
     list.innerHTML = html;
@@ -603,23 +627,30 @@ import { onAuthChange, loadUserData } from "./firebase.js";
 
   // ---- IN-RUN BAG: loot found mid-run; migrates to the stash at run's end ----
   function grantItemDrop() {
-    var candidates = ITEM_CATALOG.filter(function (it) { return !ownsItem(it.id) && runBag.indexOf(it.id) === -1; });
-    if (candidates.length === 0) {
-      var bonus = 40 + depth * 5;
+    var bossTier = Math.floor(depth / BOSS_INTERVAL) - 1;
+    var tierDef = BOSS_TIERS[bossTier % BOSS_TIERS.length];
+    var unique = itemById(tierDef.uniqueId);
+    if (!unique) {
+      var fallback = 40 + depth * 5;
+      addGold(fallback);
+      log("💎 The boss's loot converts to " + fallback + " bonus essence.");
+      return;
+    }
+    if (ownsItem(unique.id) || runBag.indexOf(unique.id) !== -1) {
+      var bonus = 50 + depth * 5;
       addGold(bonus);
-      log("💎 You already own all the gear — the loot converts to " + bonus + " bonus essence.");
+      log("💎 You already own the " + unique.name + " — the boss's loot converts to " + bonus + " bonus essence instead.");
       return;
     }
     if (runBag.length >= RUN_BAG_CAP) {
       var bonus2 = 25;
       addGold(bonus2);
-      log("🎒 Your bag is full — the dropped gear sells for " + bonus2 + " essence instead.");
+      log("🎒 Your bag is full — the " + unique.name + " sells for " + bonus2 + " essence instead.");
       return;
     }
-    var pick = candidates[rnd(0, candidates.length - 1)];
-    runBag.push(pick.id);
-    runLoot.push(pick.id);
-    log("📦 The boss drops " + pick.icon + " " + pick.name + "! (" + describeBonus(pick.bonus) + ") — in your bag.");
+    runBag.push(unique.id);
+    runLoot.push(unique.id);
+    log("🌟 UNIQUE DROP: " + unique.icon + " " + unique.name + "! (" + describeBonus(unique.bonus) + ") — in your bag.");
   }
 
   function applyStatDelta(key, delta) {
@@ -668,8 +699,9 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     document.getElementById("bag-empty-note").style.display = "none";
     list.innerHTML = runBag.map(function (id) {
       var it = itemById(id);
-      return '<div class="shop-row"><div class="shop-row-info"><span class="shop-name">' + it.icon + " " + it.name + '</span>' +
-        '<span class="shop-desc">' + describeBonus(it.bonus) + " · " + SLOT_LABELS[it.slot] + "</span></div>" +
+      var color = rarityColorOf(it);
+      return '<div class="shop-row"><div class="shop-row-info"><span class="shop-name" style="color:' + color + '">' + it.icon + " " + it.name + "</span>" +
+        '<span class="shop-desc"><b style="color:' + color + ';text-transform:uppercase;font-size:10.5px;">' + rarityOf(it) + "</b> · " + describeBonus(it.bonus) + " · " + SLOT_LABELS[it.slot] + "</span></div>" +
         '<button class="armory-equip" data-id="' + id + '">Equip</button></div>';
     }).join("");
     Array.prototype.forEach.call(list.querySelectorAll(".armory-equip"), function (btn) {
