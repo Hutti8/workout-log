@@ -1115,9 +1115,18 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     render();
     if (pendingTalents > 0) {
       turnBusy = true;
+      var wasAuto = autoMode;
       autoMode = false;
       updateAutoButton();
-      offerTalents(function () { monsterTurn(); render(); });
+      offerTalents(function () {
+        monsterTurn();
+        render();
+        if (wasAuto) {
+          autoMode = true;
+          updateAutoButton();
+          autoStep();
+        }
+      });
     } else {
       monsterTurn();
       render();
