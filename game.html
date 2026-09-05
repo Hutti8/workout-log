@@ -1378,21 +1378,19 @@ import { onAuthChange, loadUserData } from "./firebase.js";
   }
 
   function autoStepToward(tx, ty, boss, stuckMessage) {
+    // Non-boss monsters are NOT avoided here: stepping onto an occupied tile
+    // just attacks it (tryMovePlayer handles that), which is exactly "auto
+    // fights its way to the target" — the boss is the only true obstacle.
     var avoid = function (x, y) {
       if ((x !== tx || y !== ty) && x === stairs.x && y === stairs.y) return true;
       if (boss && x === boss.x && y === boss.y) return true;
-      var m = occupied(x, y);
-      if (m && !(x === tx && y === ty)) return true;
       return false;
     };
     var path = bfsPath(player.x, player.y, function (x, y) { return x === tx && y === ty; }, avoid);
     if (!path || path.length === 0) {
       if (boss) {
         var avoidNoBoss = function (x, y) {
-          if ((x !== tx || y !== ty) && x === stairs.x && y === stairs.y) return true;
-          if (x === boss.x && y === boss.y) return false;
-          var m = occupied(x, y);
-          return m && !(x === tx && y === ty);
+          return (x !== tx || y !== ty) && x === stairs.x && y === stairs.y;
         };
         var altPath = bfsPath(player.x, player.y, function (x, y) { return x === tx && y === ty; }, avoidNoBoss);
         if (altPath && altPath.length > 0) {
