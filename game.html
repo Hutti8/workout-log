@@ -285,7 +285,7 @@ import { onAuthChange, loadUserData } from "./firebase.js";
   var BOSS_INTERVAL = 10;
   var RUN_BAG_CAP = 6;
   var STASH_CAP = 30;
-  var AUTO_TICK_MS = 160;
+  var AUTO_TICK_MS = 300;
 
   var HIGH_SCORE_KEY = "gains-dungeon-best-week";
   var ESSENCE_KEY = "gains-dungeon-essence";
@@ -723,10 +723,33 @@ import { onAuthChange, loadUserData } from "./firebase.js";
            a.y - 1 < b.y + b.h + 1 && a.y + a.h + 1 > b.y - 1;
   }
 
+  function placeArenaRoom(existingRooms) {
+    var sizes = [[13, 9], [12, 8], [11, 8], [10, 7], [9, 6], [8, 6]];
+    for (var s = 0; s < sizes.length; s++) {
+      var aw = sizes[s][0], ah = sizes[s][1];
+      if (aw > W - 3 || ah > H - 3) continue;
+      for (var attempt = 0; attempt < 150; attempt++) {
+        var ax = rnd(1, W - aw - 2), ay = rnd(1, H - ah - 2);
+        var candidate = { x: ax, y: ay, w: aw, h: ah };
+        var ok = true;
+        for (var i = 0; i < existingRooms.length; i++) if (roomsOverlap(candidate, existingRooms[i])) { ok = false; break; }
+        if (ok) return candidate;
+      }
+    }
+    return null;
+  }
+
   function generateLevel(d) {
     grid = newGrid();
     rooms = [];
-    var attempts = 0, maxRooms = 6 + Math.min(d, 4);
+    var isBossLevel = d % BOSS_INTERVAL === 0;
+
+    // Reserve the boss arena's footprint FIRST (against an empty map) so it
+    // gets first pick of space, before the small rooms fragment everything.
+    var arenaReserved = isBossLevel ? placeArenaRoom([]) : null;
+    var blockers = arenaReserved ? [arenaReserved] : [];
+
+    var attempts = 0, maxRooms = (isBossLevel ? 5 : 6) + Math.min(d, 4);
     while (rooms.length < maxRooms && attempts < 300) {
       attempts++;
       var w = rnd(4, 7), h = rnd(3, 5);
@@ -734,6 +757,7 @@ import { onAuthChange, loadUserData } from "./firebase.js";
       var room = { x: x, y: y, w: w, h: h };
       var ok = true;
       for (var i = 0; i < rooms.length; i++) if (roomsOverlap(room, rooms[i])) { ok = false; break; }
+      if (ok) for (var bi2 = 0; bi2 < blockers.length; bi2++) if (roomsOverlap(room, blockers[bi2])) { ok = false; break; }
       if (!ok) continue;
       carveRoom(room);
       if (rooms.length > 0) {
@@ -744,16 +768,29 @@ import { onAuthChange, loadUserData } from "./firebase.js";
       rooms.push(room);
     }
 
+    if (rooms.length === 0) {
+      // Extremely unlikely fallback: force a starting room even if the arena ate most of the map.
+      rooms.push({ x: 1, y: 1, w: 4, h: 3 });
+      carveRoom(rooms[0]);
+    }
+
     var start = rooms[0];
     player.x = Math.floor(start.x + start.w / 2);
     player.y = Math.floor(start.y + start.h / 2);
+
+    if (isBossLevel && arenaReserved) {
+      carveRoom(arenaReserved);
+      var beforeArena = rooms[rooms.length - 1];
+      carveCorridor(Math.floor(beforeArena.x + beforeArena.w / 2), Math.floor(beforeArena.y + beforeArena.h / 2),
+                     Math.floor(arenaReserved.x + arenaReserved.w / 2), Math.floor(arenaReserved.y + arenaReserved.h / 2));
+      rooms.push(arenaReserved);
+    }
 
     var last = rooms[rooms.length - 1];
     stairs = { x: Math.floor(last.x + last.w / 2), y: Math.floor(last.y + last.h / 2) };
 
     monsters = [];
     items = [];
-    var isBossLevel = d % BOSS_INTERVAL === 0;
     stairsLocked = false;
 
     var pool = MONSTER_TYPES.filter(function (m) { return m.minDepth <= d; });
@@ -763,9 +800,10 @@ import { onAuthChange, loadUserData } from "./firebase.js";
       var bossTier = Math.floor(d / BOSS_INTERVAL) - 1;
       var bossScale = 1 + bossTier * 0.7;
       var bossHp = Math.round(60 * bossScale);
-      var bx = last.x + last.w > 2 ? last.x + 1 : last.x;
-      var by = last.y + last.h > 2 ? last.y + 1 : last.y;
-      if (bx === stairs.x && by === stairs.y) bx = Math.min(last.x + last.w - 1, bx + 1);
+      var bx = Math.floor(last.x + last.w / 2) - 2;
+      var by = Math.floor(last.y + last.h / 2);
+      bx = Math.max(last.x + 1, Math.min(last.x + last.w - 2, bx));
+      if (bx === stairs.x && by === stairs.y) bx = Math.max(last.x + 1, bx - 1);
       monsters.push({
         x: bx, y: by, glyph: "👹", name: BOSS_NAMES[bossTier % BOSS_NAMES.length],
         hp: bossHp, maxHp: bossHp, atk: Math.round(9 * bossScale), xp: 80 * (bossTier + 1),
@@ -773,9 +811,8 @@ import { onAuthChange, loadUserData } from "./firebase.js";
       });
       var numMinions = 2;
       for (var bi = 0; bi < numMinions; bi++) {
-        var mRoom = rooms[rnd(1, Math.max(1, rooms.length - 2))];
-        var mx2 = rnd(mRoom.x, mRoom.x + mRoom.w - 1), my2 = rnd(mRoom.y, mRoom.y + mRoom.h - 1);
-        if ((mx2 === player.x && my2 === player.y) || occupied(mx2, my2)) continue;
+        var mx2 = rnd(last.x, last.x + last.w - 1), my2 = rnd(last.y, last.y + last.h - 1);
+        if ((mx2 === player.x && my2 === player.y) || (mx2 === stairs.x && my2 === stairs.y) || occupied(mx2, my2)) continue;
         var mt = pool[rnd(0, pool.length - 1)];
         var mscale = 1 + (d - 1) * 0.15;
         monsters.push({
@@ -1216,6 +1253,13 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     }
     log("You descend into the Gains Dungeon. Week 1.");
     render();
+
+    if (heroBonus.level > 0) {
+      pendingTalents = heroBonus.level;
+      turnBusy = true;
+      log("🌟 Your training level grants " + heroBonus.level + " starting talent" + (heroBonus.level === 1 ? "" : "s") + "!");
+      offerTalents(function () { render(); });
+    }
   }
 
   // ---- AUTO-EXPLORE ----
