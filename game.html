@@ -1613,8 +1613,14 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     }
 
     var beside = stepBesideStairs();
-    if (beside === "here" || beside === null) {
+    if (beside === null) {
       stopAuto("✅ Floor cleared! Stairs are ready when you are.");
+      return;
+    }
+    if (beside === "here") {
+      var dx = stairs.x - player.x, dy = stairs.y - player.y;
+      tryMovePlayer(dx, dy);
+      scheduleAutoTick();
       return;
     }
     autoStepToward(beside.x, beside.y);
