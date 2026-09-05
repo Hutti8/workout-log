@@ -280,6 +280,7 @@
     <h2>🌟 Choose a Talent</h2>
     <p>Level up! Pick one to keep for the rest of this run.</p>
     <div id="talent-options"></div>
+    <p id="talent-auto-note" style="display:none;font-size:12px;color:var(--text-secondary);margin-top:8px;"></p>
   </div>
 </div>
 
@@ -331,6 +332,10 @@ import { onAuthChange, loadUserData } from "./firebase.js";
   var runBag = [];
   var runLoot = [];
   var autoMode = false;
+  var talentAutoPick = false;
+  var TALENT_AUTO_PICK_MS = 6000;
+  var talentAutoPickTimeout = null;
+  var talentAutoPickInterval = null;
 
   var EQUIP_SLOTS = ["weapon", "offhand", "armor", "ring", "trinket"];
   var SLOT_LABELS = { weapon: "🗡️ Weapon", offhand: "🛡️ Off-hand", armor: "🎽 Armor", ring: "💍 Ring", trinket: "🔮 Trinket" };
@@ -1093,9 +1098,32 @@ import { onAuthChange, loadUserData } from "./firebase.js";
       btn.addEventListener("click", function () { pickTalent(picks[i]); });
     });
     document.getElementById("talent-overlay").classList.add("show");
+
+    clearTalentAutoPick();
+    var note = document.getElementById("talent-auto-note");
+    if (talentAutoPick) {
+      var secondsLeft = Math.ceil(TALENT_AUTO_PICK_MS / 1000);
+      note.style.display = "block";
+      note.textContent = "🤖 Auto-picking in " + secondsLeft + "s...";
+      talentAutoPickInterval = setInterval(function () {
+        secondsLeft--;
+        if (secondsLeft > 0) note.textContent = "🤖 Auto-picking in " + secondsLeft + "s...";
+      }, 1000);
+      talentAutoPickTimeout = setTimeout(function () {
+        pickTalent(picks[rnd(0, picks.length - 1)]);
+      }, TALENT_AUTO_PICK_MS);
+    } else {
+      note.style.display = "none";
+    }
+  }
+
+  function clearTalentAutoPick() {
+    if (talentAutoPickTimeout) { clearTimeout(talentAutoPickTimeout); talentAutoPickTimeout = null; }
+    if (talentAutoPickInterval) { clearInterval(talentAutoPickInterval); talentAutoPickInterval = null; }
   }
 
   function pickTalent(t) {
+    clearTalentAutoPick();
     t.apply(player);
     pendingTalents = Math.max(0, pendingTalents - 1);
     log("🌟 Talent gained: " + t.name + " — " + t.desc);
@@ -1115,9 +1143,19 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     render();
     if (pendingTalents > 0) {
       turnBusy = true;
+      var wasAuto = autoMode;
+      talentAutoPick = wasAuto;
       autoMode = false;
       updateAutoButton();
-      offerTalents(function () { monsterTurn(); render(); });
+      offerTalents(function () {
+        monsterTurn();
+        render();
+        if (wasAuto) {
+          autoMode = true;
+          updateAutoButton();
+          autoStep();
+        }
+      });
     } else {
       monsterTurn();
       render();
@@ -1450,6 +1488,7 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     if (heroBonus.level > 0) {
       pendingTalents = heroBonus.level;
       turnBusy = true;
+      talentAutoPick = autoMode;
       log("🌟 Your training level grants " + heroBonus.level + " starting talent" + (heroBonus.level === 1 ? "" : "s") + "!");
       offerTalents(function () { render(); autoStep(); });
     } else {
