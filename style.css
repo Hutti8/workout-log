@@ -67,6 +67,9 @@ header {
 .btn-signout { background: transparent; border: 1px solid var(--border); color: var(--text-secondary); border-radius: 8px; padding: 4px 12px; font-size: 12px; cursor: pointer; transition: all 0.15s; }
 .btn-signout:hover { border-color: var(--danger); color: var(--danger); }
 
+.btn-icon-accent { background: transparent; border: 1px solid var(--col-hi); color: var(--col-hi); border-radius: 8px; padding: 4px 12px; font-size: 12px; cursor: pointer; transition: all 0.15s; }
+.btn-icon-accent:hover { background: rgba(255,255,255,0.08); }
+
 .page { display: none; padding: 1rem; }
 .page.active { display: block; }
 .page-intro { color: var(--text-secondary); margin-bottom: 1rem; font-size: 15px; }
