@@ -14,12 +14,22 @@
     --text-primary: #ffffff;
     --text-secondary: #9a9a9f;
     --col-hi: #7eb8f7;
+    --col-hi-tint: rgba(126,184,247,0.1);
     --accent: #1a3a6e;
     --accent-hover: #1a4f9e;
     --danger: #c0392b;
     --good: #4caf7d;
     --gold: #f0a500;
     --shield: #6ab7ff;
+  }
+  body.girly {
+    --bg-primary: #1a101e;
+    --bg-card: #281528;
+    --border: #4a2842;
+    --col-hi: #f78fb3;
+    --col-hi-tint: rgba(247,143,179,0.1);
+    --accent: #7b1a4a;
+    --accent-hover: #9b2a5a;
   }
   html, body {
     height: 100%;
@@ -134,7 +144,7 @@
     margin-top: 0; width: 100%; text-align: left; background: var(--bg-primary);
     border: 1px solid var(--border); display: flex; flex-direction: column; gap: 2px;
   }
-  .modal-box button.talent-option:hover { background: rgba(126,184,247,0.1); border-color: var(--col-hi); }
+  .modal-box button.talent-option:hover { background: var(--col-hi-tint); border-color: var(--col-hi); }
   .talent-option .t-cat { font-size: 10.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--col-hi); font-weight: 700; }
   .talent-option .t-name { font-size: 15px; font-weight: 700; }
   .talent-option .t-desc { font-size: 12.5px; color: var(--text-secondary); font-weight: 400; }
@@ -145,7 +155,7 @@
     background: var(--bg-primary); border: 1px solid var(--border); border-radius: 10px;
     padding: 10px 12px; margin-bottom: 8px; text-align: left;
   }
-  .shop-row.equipped { border-color: var(--col-hi); background: rgba(126,184,247,0.08); }
+  .shop-row.equipped { border-color: var(--col-hi); background: var(--col-hi-tint); }
   .shop-row-info { flex: 1; min-width: 0; }
   .shop-name { font-weight: 700; font-size: 14px; }
   .shop-level { font-weight: 400; color: var(--text-secondary); font-size: 12px; }
@@ -278,6 +288,8 @@ import { onAuthChange, loadUserData } from "./firebase.js";
 
 (function () {
   "use strict";
+
+  document.body.classList.toggle("girly", localStorage.getItem("theme") === "girly");
 
   var W = 28, H = 16;
   var WALL = 0, FLOOR = 1;
