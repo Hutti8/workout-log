@@ -532,7 +532,7 @@ import { onAuthChange, loadUserData } from "./firebase.js";
           '<span class="shop-desc">' + u.desc + "</span>" +
         "</div>" +
         (maxed
-          ? "<button disabled>MAX</button>"
+          ? '<button class="shop-buy" disabled>MAX</button>'
           : '<button class="shop-buy" data-id="' + u.id + '" ' + (essence < cost ? "disabled" : "") + ">Buy · 💎" + cost + "</button>") +
         "</div>";
     }).join("");
