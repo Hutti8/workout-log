@@ -260,7 +260,7 @@
     <div class="armory-slot-title" style="margin-top:0;">Equipped</div>
     <div id="equipped-list"></div>
     <div class="armory-slot-title">In-Run Loot</div>
-    <p id="bag-empty-note">Nothing in your bag yet — boss fights drop loot here.</p>
+    <p id="bag-empty-note">Nothing in your bag yet — boss kills drop fragments; collect 10 of a boss's fragments to assemble their unique gear here.</p>
     <div id="bag-list"></div>
     <button id="btn-bag-close" class="btn-outline">Close</button>
   </div>
@@ -302,12 +302,14 @@ import { onAuthChange, loadUserData } from "./firebase.js";
   var RUN_BAG_CAP = 6;
   var STASH_CAP = 30;
   var AUTO_TICK_MS = 200;
+  var FRAGMENT_GOAL = 10;
 
   var HIGH_SCORE_KEY = "gains-dungeon-best-week";
   var ESSENCE_KEY = "gains-dungeon-essence";
   var UPGRADES_KEY = "gains-dungeon-upgrades";
   var STASH_KEY = "gains-dungeon-stash";
   var EQUIPPED_KEY = "gains-dungeon-equipped";
+  var FRAGMENTS_KEY = "gains-dungeon-fragments";
 
   var grid, rooms, player, monsters, items, stairs, depth, messages, gameOver, turnBusy, reviveAvailable;
   var currentArena = null, currentArenaTheme = null, arenaEntranceAnchor = null;
@@ -447,6 +449,11 @@ import { onAuthChange, loadUserData } from "./firebase.js";
   }
   var stash = loadStash();
 
+  function loadFragments() {
+    try { return JSON.parse(localStorage.getItem(FRAGMENTS_KEY) || "{}"); } catch (e) { return {}; }
+  }
+  var fragments = loadFragments();
+
   function loadEquipped() {
     var d = {};
     EQUIP_SLOTS.forEach(function (s) { d[s] = null; });
@@ -463,6 +470,7 @@ import { onAuthChange, loadUserData } from "./firebase.js";
   function saveUpgrades() { localStorage.setItem(UPGRADES_KEY, JSON.stringify(upgrades)); }
   function saveStash() { localStorage.setItem(STASH_KEY, JSON.stringify(stash)); }
   function saveEquipped() { localStorage.setItem(EQUIPPED_KEY, JSON.stringify(equipped)); }
+  function saveFragments() { localStorage.setItem(FRAGMENTS_KEY, JSON.stringify(fragments)); }
 
   function itemById(id) {
     for (var i = 0; i < ITEM_CATALOG.length; i++) if (ITEM_CATALOG[i].id === id) return ITEM_CATALOG[i];
@@ -595,7 +603,7 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     var action;
     if (isEquipped) action = '<button class="armory-unequip" data-slot="' + slot + '">Unequip</button>';
     else if (owned) action = '<button class="armory-equip" data-id="' + it.id + '" data-slot="' + slot + '">Equip</button>';
-    else if (rarity === "Unique") action = '<span style="font-size:11px;color:var(--text-secondary);white-space:nowrap;padding-left:8px;">🔒 Boss loot</span>';
+    else if (rarity === "Unique") action = '<span style="font-size:11px;color:var(--text-secondary);white-space:nowrap;padding-left:8px;">🧩 ' + (fragments[it.id] || 0) + "/" + FRAGMENT_GOAL + "</span>";
     else action = '<button class="armory-buy" data-id="' + it.id + '" data-slot="' + slot + '" ' + (essence < it.cost ? "disabled" : "") + ">Buy · 💎" + it.cost + "</button>";
     return '<div class="shop-row' + (isEquipped ? " equipped" : "") + '">' +
       '<div class="shop-row-info"><span class="shop-name" style="color:' + color + '">' + it.icon + " " + it.name + "</span>" +
@@ -625,7 +633,8 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     });
   }
 
-  // ---- IN-RUN BAG: loot found mid-run; migrates to the stash at run's end ----
+  // ---- BOSS FRAGMENTS: killing a boss grants one piece of its unique gear;
+  // collect FRAGMENT_GOAL pieces of the same boss to assemble it ----
   function grantItemDrop() {
     var bossTier = Math.floor(depth / BOSS_INTERVAL) - 1;
     var tierDef = BOSS_TIERS[bossTier % BOSS_TIERS.length];
@@ -636,21 +645,29 @@ import { onAuthChange, loadUserData } from "./firebase.js";
       log("💎 The boss's loot converts to " + fallback + " bonus essence.");
       return;
     }
-    if (ownsItem(unique.id) || runBag.indexOf(unique.id) !== -1) {
+    if (ownsItem(unique.id)) {
       var bonus = 50 + depth * 5;
       addGold(bonus);
       log("💎 You already own the " + unique.name + " — the boss's loot converts to " + bonus + " bonus essence instead.");
       return;
     }
-    if (runBag.length >= RUN_BAG_CAP) {
-      var bonus2 = 25;
-      addGold(bonus2);
-      log("🎒 Your bag is full — the " + unique.name + " sells for " + bonus2 + " essence instead.");
+    var have = Math.min(FRAGMENT_GOAL, (fragments[unique.id] || 0) + 1);
+    fragments[unique.id] = have;
+    saveFragments();
+    if (have < FRAGMENT_GOAL) {
+      log("🧩 Boss fragment collected: " + unique.icon + " " + unique.name + " (" + have + "/" + FRAGMENT_GOAL + " pieces).");
       return;
     }
-    runBag.push(unique.id);
-    runLoot.push(unique.id);
-    log("🌟 UNIQUE DROP: " + unique.icon + " " + unique.name + "! (" + describeBonus(unique.bonus) + ") — in your bag.");
+    fragments[unique.id] = 0;
+    saveFragments();
+    addToStash(unique.id);
+    if (runBag.length < RUN_BAG_CAP) {
+      runBag.push(unique.id);
+      runLoot.push(unique.id);
+      log("🌟 UNIQUE ASSEMBLED: " + unique.icon + " " + unique.name + "! (" + describeBonus(unique.bonus) + ") — in your bag.");
+    } else {
+      log("🌟 UNIQUE ASSEMBLED: " + unique.icon + " " + unique.name + "! (" + describeBonus(unique.bonus) + ") — added straight to your stash.");
+    }
   }
 
   function applyStatDelta(key, delta) {
