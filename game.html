@@ -1874,6 +1874,11 @@ import { onAuthChange, loadUserData } from "./firebase.js";
       return;
     }
 
+    if (inBossBattle()) {
+      stopAuto("⚔️ Boss fight! Auto-explore stands down — take over!");
+      return;
+    }
+
     var adjMonster = adjacentNonBossMonster(player.x, player.y);
     if (adjMonster) {
       var dx = adjMonster.x - player.x, dy = adjMonster.y - player.y;
