@@ -178,9 +178,17 @@
     text-transform: uppercase; color: #ff8a8a; margin-bottom: 8px; flex-shrink: 0;
     text-shadow: 0 0 12px rgba(255,80,80,0.55);
   }
-  #bb-boss-panel { display: flex; flex-direction: column; gap: 5px; flex-shrink: 0; }
+  #bb-title.bb-title-enter { animation: bbTitleIn .4s cubic-bezier(.34,1.56,.64,1); }
+  @keyframes bbTitleIn { 0% { transform: scale(0.6); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+  #bb-boss-panel { display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; }
+  .bb-boss-row { display: flex; align-items: center; gap: 8px; }
+  .bb-boss-badge {
+    flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%; font-size: 15px;
+    background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.15);
+    display: flex; align-items: center; justify-content: center;
+  }
   .bb-hpbar-outer {
-    position: relative; height: 22px; border-radius: 7px; overflow: hidden;
+    position: relative; height: 22px; border-radius: 7px; overflow: hidden; flex: 1;
     border: 1px solid var(--danger); background: #1a0d0d;
   }
   .bb-hpbar-fill { height: 100%; background: linear-gradient(90deg, #7a0000, #e05c5c); transition: width .2s; }
@@ -192,7 +200,7 @@
     flex: 1; position: relative; border-radius: 16px; overflow: hidden;
     margin: 10px 0; min-height: 100px;
     border: 1px solid rgba(255,255,255,0.08);
-    box-shadow: inset 0 0 40px rgba(0,0,0,0.6);
+    box-shadow: inset 0 0 50px rgba(0,0,0,0.7);
   }
   #bb-stage.bb-shake { animation: bbShake .25s; }
   @keyframes bbShake {
@@ -202,11 +210,24 @@
     75% { transform: translate(-3px, -2px); }
   }
   #bb-stage-inner { position: absolute; inset: 0; }
+  .bb-particle { position: absolute; border-radius: 50%; pointer-events: none; opacity: 0; animation: bbFloatUp linear infinite; }
+  @keyframes bbFloatUp {
+    0% { transform: translateY(0); opacity: 0; }
+    12% { opacity: .55; }
+    88% { opacity: .35; }
+    100% { transform: translateY(-130px); opacity: 0; }
+  }
   .bb-token {
     position: absolute; display: flex; align-items: center; justify-content: center; overflow: visible;
     transition: left .15s linear, top .15s linear; will-change: left, top;
   }
-  .bb-token.bb-player { color: var(--col-hi); text-shadow: 0 0 10px rgba(126,184,247,0.75); font-weight: 700; }
+  .bb-token::after {
+    content: ""; position: absolute; left: 50%; bottom: -8%; transform: translateX(-50%);
+    width: 62%; height: 24%; border-radius: 50%; z-index: -1;
+    background: radial-gradient(ellipse, rgba(0,0,0,0.55) 0%, transparent 72%);
+  }
+  .bb-token.bb-player { color: var(--col-hi); text-shadow: 0 0 10px rgba(126,184,247,0.75); font-weight: 700; animation: bbBob 1.4s ease-in-out infinite; }
+  @keyframes bbBob { 0%, 100% { margin-top: 0; } 50% { margin-top: -4px; } }
   .bb-token.bb-boss {
     color: #ff5c5c; text-shadow: 0 0 12px rgba(255,92,92,0.9); font-weight: 700;
     animation: bbPulse 1.6s ease-in-out infinite;
@@ -218,6 +239,30 @@
   .bb-projectile {
     position: absolute; pointer-events: none; z-index: 5; transition: left linear, top linear;
     color: #ffd23f; text-shadow: 0 0 6px rgba(255,210,63,0.9), 0 0 2px #fff; line-height: 1;
+  }
+  .bb-dmg-number {
+    position: absolute; pointer-events: none; z-index: 8; font-weight: 800;
+    animation: bbDmgFloat .8s ease-out forwards; text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+  }
+  @keyframes bbDmgFloat {
+    0% { transform: translate(-50%, 0); opacity: 1; }
+    100% { transform: translate(-50%, -34px); opacity: 0; }
+  }
+  .bb-dmg-hero { color: #ff6b6b; }
+  .bb-dmg-enemy { color: #ffe066; }
+  .bb-dmg-heal { color: #6bffb0; }
+  .bb-victory-banner {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    font-size: 22px; font-weight: 800; color: #ffe066; text-shadow: 0 0 20px rgba(255,224,102,0.8);
+    background: rgba(0,0,0,0.35); z-index: 10; opacity: 0; pointer-events: none;
+    animation: bbVictory 1.2s ease-out forwards;
+  }
+  @keyframes bbVictory {
+    0% { opacity: 0; transform: scale(0.7); }
+    15% { opacity: 1; transform: scale(1.05); }
+    30% { transform: scale(1); }
+    75% { opacity: 1; }
+    100% { opacity: 0; }
   }
   #bb-player-panel { flex-shrink: 0; margin-bottom: 6px; font-size: 12.5px; color: var(--text-secondary); display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
   #bb-player-panel b { color: var(--text-primary); }
@@ -411,6 +456,7 @@ import { onAuthChange, loadUserData } from "./firebase.js";
   var nextEntityId = 1;
   var battleTokenEls = {};
   var battleScreenShown = false;
+  var battleVictoryUntil = 0;
   var MOVE_ANIM_MS = 150;
   var PROJECTILE_SPEED_MULT = 3; // arrows fly 3x the hero's own move speed
 
@@ -1261,6 +1307,7 @@ import { onAuthChange, loadUserData } from "./firebase.js";
       if (isCrit) dmg *= 2;
       m.hp -= dmg;
       flashBattleToken("m" + m.id);
+      spawnDamageNumber(m.x, m.y, "-" + dmg, "bb-dmg-enemy");
       if (m.isBoss) shakeBattleStage();
       log((isCrit ? "💥 Critical! " : "") + "You hit the " + m.name + " for " + dmg + ".");
       if (player.lifesteal > 0) {
@@ -1282,6 +1329,7 @@ import { onAuthChange, loadUserData } from "./firebase.js";
             addGold(bossGold);
             log("🏆 BOSS DEFEATED! The stairs unlock. You loot " + bossGold + " gains.");
             grantItemDrop();
+            showVictoryBanner();
           } else {
             log("⚔️ " + remainingBosses + " more foe" + (remainingBosses === 1 ? "" : "s") + " to go!");
           }
@@ -1343,10 +1391,12 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     if (ranged) {
       spawnBattleProjectile(m.x, m.y, player.x, player.y, function () {
         flashBattleToken("player");
+        spawnDamageNumber(player.x, player.y, "-" + dmg, "bb-dmg-hero");
         if (m.isBoss) shakeBattleStage();
       });
     } else {
       flashBattleToken("player");
+      spawnDamageNumber(player.x, player.y, "-" + dmg, "bb-dmg-hero");
       if (m.isBoss) shakeBattleStage();
     }
     var msg = (ranged ? "🏹 " : "") + "The " + m.name + " " + (ranged ? "shoots you for" : "attacks for") + " " + raw;
@@ -1378,6 +1428,7 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     if (!best) return false;
     var healAmt = Math.min(bestMissing, Math.round(best.maxHp * 0.25) + 5);
     best.hp += healAmt;
+    spawnDamageNumber(best.x, best.y, "+" + healAmt, "bb-dmg-heal");
     log("💉 The " + m.name + " heals the " + best.name + " for " + healAmt + " HP.");
     return true;
   }
@@ -1388,7 +1439,7 @@ import { onAuthChange, loadUserData } from "./firebase.js";
   }
 
   function inBossBattle() {
-    return playerInArena() && getBosses().length > 0;
+    return !gameOver && playerInArena() && getBosses().length > 0;
   }
 
   function clearBattleTokens() {
@@ -1436,6 +1487,7 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     el.classList.remove("bb-hit-flash");
     void el.offsetWidth;
     el.classList.add("bb-hit-flash");
+    setTimeout(function () { el.classList.remove("bb-hit-flash"); }, 260);
   }
 
   function shakeBattleStage() {
@@ -1443,6 +1495,53 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     stage.classList.remove("bb-shake");
     void stage.offsetWidth;
     stage.classList.add("bb-shake");
+  }
+
+  function spawnDamageNumber(x, y, text, cls) {
+    if (!inBossBattle() || !currentArena) return;
+    var geo = battleStageGeometry();
+    var pos = battlePos(geo, x, y);
+    var el = document.createElement("div");
+    el.className = "bb-dmg-number " + cls;
+    el.style.fontSize = Math.round(geo.cell * 0.5) + "px";
+    el.style.left = (pos.left + geo.cell / 2) + "px";
+    el.style.top = (pos.top + geo.cell * 0.15) + "px";
+    el.textContent = text;
+    document.getElementById("bb-stage-inner").appendChild(el);
+    setTimeout(function () { el.remove(); }, 850);
+  }
+
+  function spawnAmbientParticles() {
+    var layer = document.getElementById("bb-stage-inner");
+    var color = currentArenaTheme ? currentArenaTheme.floorFg : "#ffffff";
+    for (var i = 0; i < 10; i++) {
+      var p = document.createElement("div");
+      p.className = "bb-particle";
+      var size = 2 + Math.random() * 3;
+      p.style.width = size + "px";
+      p.style.height = size + "px";
+      p.style.left = Math.round(Math.random() * 100) + "%";
+      p.style.bottom = "-10px";
+      p.style.background = color;
+      p.style.animationDuration = (4 + Math.random() * 4) + "s";
+      p.style.animationDelay = (Math.random() * 4) + "s";
+      layer.appendChild(p);
+    }
+  }
+
+  function clearAmbientParticles() {
+    Array.prototype.forEach.call(document.querySelectorAll(".bb-particle"), function (p) { p.remove(); });
+  }
+
+  function showVictoryBanner() {
+    var stage = document.getElementById("bb-stage");
+    var el = document.createElement("div");
+    el.className = "bb-victory-banner";
+    el.textContent = "🏆 VICTORY";
+    stage.appendChild(el);
+    battleVictoryUntil = Date.now() + 1200;
+    setTimeout(function () { el.remove(); }, 1300);
+    setTimeout(updateBossBattleScreen, 1250);
   }
 
   function spawnBattleProjectile(fromX, fromY, toX, toY, onArrive) {
@@ -1473,13 +1572,22 @@ import { onAuthChange, loadUserData } from "./firebase.js";
 
   function updateBossBattleScreen() {
     var el = document.getElementById("boss-battle-screen");
-    var active = inBossBattle();
+    var active = !gameOver && (inBossBattle() || Date.now() < battleVictoryUntil);
     if (active) {
-      if (!battleScreenShown) { battleScreenShown = true; el.classList.add("show"); }
+      if (!battleScreenShown) {
+        battleScreenShown = true;
+        el.classList.add("show");
+        var title = document.getElementById("bb-title");
+        title.classList.remove("bb-title-enter");
+        void title.offsetWidth;
+        title.classList.add("bb-title-enter");
+        spawnAmbientParticles();
+      }
       renderBattlePanels();
     } else if (battleScreenShown) {
       battleScreenShown = false;
       el.classList.remove("show");
+      clearAmbientParticles();
     }
   }
 
@@ -1496,8 +1604,9 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     document.getElementById("bb-boss-panel").innerHTML = bosses.map(function (b) {
       var pct = Math.max(0, Math.round((b.hp / b.maxHp) * 100));
       var roleIcon = b.role === "ranger" ? "🏹" : b.role === "healer" ? "💉" : "👹";
-      return '<div class="bb-hpbar-outer"><div class="bb-hpbar-fill" style="width:' + pct + '%"></div>' +
-        '<div class="bb-hpbar-label">' + roleIcon + " " + b.name + " — " + b.hp + "/" + b.maxHp + "</div></div>";
+      return '<div class="bb-boss-row"><div class="bb-boss-badge">' + b.glyph + "</div>" +
+        '<div class="bb-hpbar-outer"><div class="bb-hpbar-fill" style="width:' + pct + '%"></div>' +
+        '<div class="bb-hpbar-label">' + roleIcon + " " + b.name + " — " + b.hp + "/" + b.maxHp + "</div></div></div>";
     }).join("");
 
     document.getElementById("bb-player-panel").innerHTML =
@@ -1572,7 +1681,9 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     autoMode = false;
     updateAutoButton();
     battleScreenShown = false;
+    battleVictoryUntil = 0;
     document.getElementById("boss-battle-screen").classList.remove("show");
+    clearAmbientParticles();
     var earned = Math.max(0, essence - runStartEssence);
     log("☠️ You collapsed in week " + depth + ".");
     document.getElementById("overlay-title").textContent = "You collapsed";
