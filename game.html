@@ -164,6 +164,82 @@
   #shop-list, #armory-list, #bag-list { margin-top: 10px; text-align: left; }
   .armory-slot-title { font-size: 12.5px; font-weight: 700; color: var(--col-hi); text-transform: uppercase; letter-spacing: .03em; margin: 14px 0 6px; }
   .armory-slot-title:first-child { margin-top: 0; }
+
+  /* ---- BOSS BATTLE SCREEN: full-screen takeover while inside a live arena ---- */
+  #boss-battle-screen {
+    position: fixed; inset: 0; z-index: 50; display: none; flex-direction: column;
+    background: radial-gradient(ellipse at 50% 0%, #1c1010 0%, #0a0a0d 70%);
+    padding: 14px 14px calc(14px + env(safe-area-inset-bottom));
+    opacity: 0; transition: opacity .25s;
+  }
+  #boss-battle-screen.show { display: flex; opacity: 1; }
+  #bb-title {
+    text-align: center; font-weight: 800; font-size: 15px; letter-spacing: .04em;
+    text-transform: uppercase; color: #ff8a8a; margin-bottom: 8px; flex-shrink: 0;
+    text-shadow: 0 0 12px rgba(255,80,80,0.55);
+  }
+  #bb-boss-panel { display: flex; flex-direction: column; gap: 5px; flex-shrink: 0; }
+  .bb-hpbar-outer {
+    position: relative; height: 22px; border-radius: 7px; overflow: hidden;
+    border: 1px solid var(--danger); background: #1a0d0d;
+  }
+  .bb-hpbar-fill { height: 100%; background: linear-gradient(90deg, #7a0000, #e05c5c); transition: width .2s; }
+  .bb-hpbar-label {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    font-size: 11.5px; font-weight: 700; text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+  }
+  #bb-stage {
+    flex: 1; position: relative; border-radius: 16px; overflow: hidden;
+    margin: 10px 0; min-height: 100px;
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: inset 0 0 40px rgba(0,0,0,0.6);
+  }
+  #bb-stage.bb-shake { animation: bbShake .25s; }
+  @keyframes bbShake {
+    0%, 100% { transform: translate(0, 0); }
+    25% { transform: translate(-5px, 3px); }
+    50% { transform: translate(5px, -3px); }
+    75% { transform: translate(-3px, -2px); }
+  }
+  #bb-stage-inner { position: absolute; inset: 0; }
+  .bb-token {
+    position: absolute; display: flex; align-items: center; justify-content: center; overflow: visible;
+    transition: left .15s linear, top .15s linear; will-change: left, top;
+  }
+  .bb-token.bb-player { color: var(--col-hi); text-shadow: 0 0 10px rgba(126,184,247,0.75); font-weight: 700; }
+  .bb-token.bb-boss {
+    color: #ff5c5c; text-shadow: 0 0 12px rgba(255,92,92,0.9); font-weight: 700;
+    animation: bbPulse 1.6s ease-in-out infinite;
+  }
+  .bb-token.bb-minion { color: #e05c5c; font-weight: 700; }
+  @keyframes bbPulse { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.4); } }
+  .bb-token.bb-hit-flash { animation: bbHitFlash .25s; }
+  @keyframes bbHitFlash { 0% { filter: brightness(2.5); } 100% { filter: brightness(1); } }
+  .bb-projectile {
+    position: absolute; pointer-events: none; z-index: 5; transition: left linear, top linear;
+    color: #ffd23f; text-shadow: 0 0 6px rgba(255,210,63,0.9), 0 0 2px #fff; line-height: 1;
+  }
+  #bb-player-panel { flex-shrink: 0; margin-bottom: 6px; font-size: 12.5px; color: var(--text-secondary); display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+  #bb-player-panel b { color: var(--text-primary); }
+  #bb-log {
+    flex-shrink: 0; font-size: 11.5px; color: var(--text-secondary); height: 50px; overflow-y: auto;
+    background: rgba(255,255,255,0.03); border-radius: 8px; padding: 6px 8px; margin-bottom: 8px;
+  }
+  #bb-log div:last-child { color: var(--text-primary); }
+  #bb-controls {
+    flex-shrink: 0; display: grid; grid-template-columns: repeat(3, 54px); grid-template-rows: repeat(2, 46px);
+    gap: 6px; justify-content: center;
+  }
+  #bb-controls button {
+    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.18); color: #fff;
+    border-radius: 10px; font-size: 17px; touch-action: manipulation;
+  }
+  #bb-controls button:active { background: var(--accent); }
+  #bb-up { grid-column: 2; grid-row: 1; }
+  #bb-left { grid-column: 1; grid-row: 2; }
+  #bb-wait { grid-column: 2; grid-row: 2; font-size: 13px; }
+  #bb-right { grid-column: 3; grid-row: 2; }
+  #bb-down { grid-column: 2; grid-row: 3; }
 </style>
 </head>
 <body>
@@ -211,6 +287,21 @@
 
   <p id="hint">Arrow keys / WASD to move, bump into monsters to attack, Space to wait. 🔰 Shield absorbs hits before HP and refills on level up. Every 5th week guards a boss — auto-explore won't fight it for you. Find <span style="color:var(--good)">&gt;</span> to advance.</p>
 
+</div>
+
+<div id="boss-battle-screen">
+  <div id="bb-title"></div>
+  <div id="bb-boss-panel"></div>
+  <div id="bb-stage"><div id="bb-stage-inner"></div></div>
+  <div id="bb-player-panel"></div>
+  <div id="bb-log"></div>
+  <div id="bb-controls">
+    <button id="bb-up">▲</button>
+    <button id="bb-left">◀</button>
+    <button id="bb-wait">●</button>
+    <button id="bb-right">▶</button>
+    <button id="bb-down">▼</button>
+  </div>
 </div>
 
 <div id="gate-overlay" class="modal-backdrop show">
@@ -312,8 +403,16 @@ import { onAuthChange, loadUserData } from "./firebase.js";
   var FRAGMENTS_KEY = "gains-dungeon-fragments";
 
   var grid, rooms, player, monsters, items, stairs, depth, messages, gameOver, turnBusy, reviveAvailable;
-  var currentArena = null, currentArenaTheme = null, arenaEntranceAnchor = null;
+  var currentArena = null, currentArenaTheme = null, arenaEntranceAnchor = null, currentArenaBossName = null;
   gameOver = true; // locked until the hero is ready
+
+  // ---- BOSS BATTLE SCREEN: a full-screen takeover shown whenever the hero
+  // is standing inside a live boss arena, with its own animated stage ----
+  var nextEntityId = 1;
+  var battleTokenEls = {};
+  var battleScreenShown = false;
+  var MOVE_ANIM_MS = 150;
+  var PROJECTILE_SPEED_MULT = 3; // arrows fly 3x the hero's own move speed
 
   var heroBonus = { workouts: 0, level: 0, hp: 0, atk: 0, gold: 0, pumped: false, streak: 0 };
 
@@ -901,6 +1000,7 @@ import { onAuthChange, loadUserData } from "./firebase.js";
       rooms.push(arenaReserved);
       currentArena = arenaReserved;
       currentArenaTheme = tierDef.theme;
+      currentArenaBossName = tierDef.name;
       arenaEntranceAnchor = { x: Math.floor(beforeArena.x + beforeArena.w / 2), y: Math.floor(beforeArena.y + beforeArena.h / 2) };
       for (var ay = arenaReserved.y; ay < arenaReserved.y + arenaReserved.h; ay++) {
         for (var ax = arenaReserved.x; ax < arenaReserved.x + arenaReserved.w; ax++) {
@@ -911,6 +1011,7 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     } else {
       currentArena = null;
       currentArenaTheme = null;
+      currentArenaBossName = null;
       arenaEntranceAnchor = null;
     }
 
@@ -920,6 +1021,7 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     monsters = [];
     items = [];
     stairsLocked = false;
+    clearBattleTokens();
 
     var pool = MONSTER_TYPES.filter(function (m) { return m.minDepth <= d; });
 
@@ -969,6 +1071,7 @@ import { onAuthChange, loadUserData } from "./firebase.js";
         var spot = usedSpots[i];
         var hp = Math.round(baseBossHp * bossScale * mem.hpMul);
         monsters.push({
+          id: nextEntityId++,
           x: spot.x, y: spot.y, glyph: mem.glyph, name: mem.name || tierDef.name,
           hp: hp, maxHp: hp, atk: Math.round(baseBossAtk * bossScale * mem.atkMul),
           xp: Math.round(80 * (bossTier + 1) / tierDef.members.length),
@@ -982,6 +1085,7 @@ import { onAuthChange, loadUserData } from "./firebase.js";
         var mt = pool[rnd(0, pool.length - 1)];
         var mscale = 1 + (d - 1) * 0.15;
         monsters.push({
+          id: nextEntityId++,
           x: mx2, y: my2, glyph: mt.glyph, name: mt.name,
           hp: Math.round(mt.hp * mscale), maxHp: Math.round(mt.hp * mscale),
           atk: Math.round(mt.atk * mscale), xp: mt.xp, aggro: false
@@ -998,6 +1102,7 @@ import { onAuthChange, loadUserData } from "./firebase.js";
         var t = pool[rnd(0, pool.length - 1)];
         var scale = 1 + (d - 1) * 0.15;
         monsters.push({
+          id: nextEntityId++,
           x: mx, y: my, glyph: t.glyph, name: t.name,
           hp: Math.round(t.hp * scale), maxHp: Math.round(t.hp * scale),
           atk: Math.round(t.atk * scale), xp: t.xp, aggro: false
@@ -1155,6 +1260,8 @@ import { onAuthChange, loadUserData } from "./firebase.js";
       var isCrit = player.crit > 0 && chance(player.crit / 100);
       if (isCrit) dmg *= 2;
       m.hp -= dmg;
+      flashBattleToken("m" + m.id);
+      if (m.isBoss) shakeBattleStage();
       log((isCrit ? "💥 Critical! " : "") + "You hit the " + m.name + " for " + dmg + ".");
       if (player.lifesteal > 0) {
         var healAmt = Math.round(dmg * player.lifesteal / 100);
@@ -1233,6 +1340,15 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     player.shield -= absorbed;
     var hpDmg = dmg - absorbed;
     player.hp -= hpDmg;
+    if (ranged) {
+      spawnBattleProjectile(m.x, m.y, player.x, player.y, function () {
+        flashBattleToken("player");
+        if (m.isBoss) shakeBattleStage();
+      });
+    } else {
+      flashBattleToken("player");
+      if (m.isBoss) shakeBattleStage();
+    }
     var msg = (ranged ? "🏹 " : "") + "The " + m.name + " " + (ranged ? "shoots you for" : "attacks for") + " " + raw;
     if (defBlocked > 0) msg += " (🪨" + defBlocked + " blocked by DEF)";
     msg += " → " + dmg + " dmg";
@@ -1269,6 +1385,144 @@ import { onAuthChange, loadUserData } from "./firebase.js";
   function playerInArena() {
     return !!currentArena && player.x >= currentArena.x && player.x < currentArena.x + currentArena.w &&
       player.y >= currentArena.y && player.y < currentArena.y + currentArena.h;
+  }
+
+  function inBossBattle() {
+    return playerInArena() && getBosses().length > 0;
+  }
+
+  function clearBattleTokens() {
+    Object.keys(battleTokenEls).forEach(function (k) { battleTokenEls[k].remove(); });
+    battleTokenEls = {};
+  }
+
+  function removeBattleToken(key) {
+    if (battleTokenEls[key]) { battleTokenEls[key].remove(); delete battleTokenEls[key]; }
+  }
+
+  function battleStageGeometry() {
+    var stage = document.getElementById("bb-stage");
+    var w = currentArena.w, h = currentArena.h;
+    var cell = Math.max(8, Math.min(stage.clientWidth / w, stage.clientHeight / h));
+    return { cell: cell, offX: (stage.clientWidth - cell * w) / 2, offY: (stage.clientHeight - cell * h) / 2 };
+  }
+
+  function battlePos(geo, x, y) {
+    return { left: geo.offX + (x - currentArena.x) * geo.cell, top: geo.offY + (y - currentArena.y) * geo.cell };
+  }
+
+  function positionBattleToken(key, x, y, glyph, cls, big) {
+    if (!currentArena) return;
+    var geo = battleStageGeometry();
+    var pos = battlePos(geo, x, y);
+    var el = battleTokenEls[key];
+    if (!el) {
+      el = document.createElement("div");
+      el.className = "bb-token " + cls;
+      document.getElementById("bb-stage-inner").appendChild(el);
+      battleTokenEls[key] = el;
+    }
+    el.textContent = glyph;
+    el.style.width = geo.cell + "px";
+    el.style.height = geo.cell + "px";
+    el.style.fontSize = Math.round(geo.cell * (big ? 1.2 : 0.72)) + "px";
+    el.style.left = pos.left + "px";
+    el.style.top = pos.top + "px";
+  }
+
+  function flashBattleToken(key) {
+    var el = battleTokenEls[key];
+    if (!el) return;
+    el.classList.remove("bb-hit-flash");
+    void el.offsetWidth;
+    el.classList.add("bb-hit-flash");
+  }
+
+  function shakeBattleStage() {
+    var stage = document.getElementById("bb-stage");
+    stage.classList.remove("bb-shake");
+    void stage.offsetWidth;
+    stage.classList.add("bb-shake");
+  }
+
+  function spawnBattleProjectile(fromX, fromY, toX, toY, onArrive) {
+    if (!inBossBattle() || !currentArena) { if (onArrive) onArrive(); return; }
+    var geo = battleStageGeometry();
+    var from = battlePos(geo, fromX, fromY);
+    var to = battlePos(geo, toX, toY);
+    var el = document.createElement("div");
+    el.className = "bb-projectile";
+    el.textContent = "➤";
+    el.style.fontSize = Math.round(geo.cell * 0.85) + "px";
+    el.style.left = (from.left + geo.cell / 2) + "px";
+    el.style.top = (from.top + geo.cell / 2) + "px";
+    var angle = Math.atan2(to.top - from.top, to.left - from.left) * 180 / Math.PI;
+    el.style.transform = "translate(-50%, -50%) rotate(" + angle + "deg)";
+    document.getElementById("bb-stage-inner").appendChild(el);
+    var dist = Math.hypot(toX - fromX, toY - fromY);
+    var duration = Math.max(60, Math.round((dist * MOVE_ANIM_MS) / PROJECTILE_SPEED_MULT));
+    el.style.transitionDuration = duration + "ms";
+    void el.offsetWidth;
+    el.style.left = (to.left + geo.cell / 2) + "px";
+    el.style.top = (to.top + geo.cell / 2) + "px";
+    setTimeout(function () {
+      el.remove();
+      if (onArrive) onArrive();
+    }, duration + 20);
+  }
+
+  function updateBossBattleScreen() {
+    var el = document.getElementById("boss-battle-screen");
+    var active = inBossBattle();
+    if (active) {
+      if (!battleScreenShown) { battleScreenShown = true; el.classList.add("show"); }
+      renderBattlePanels();
+    } else if (battleScreenShown) {
+      battleScreenShown = false;
+      el.classList.remove("show");
+    }
+  }
+
+  function renderBattlePanels() {
+    document.getElementById("bb-title").textContent = "⚔️ " + (currentArenaBossName || "Boss Fight");
+
+    var stage = document.getElementById("bb-stage");
+    if (currentArenaTheme) {
+      stage.style.background = "radial-gradient(circle at 50% 30%, " + currentArenaTheme.floorBg + " 0%, " + currentArenaTheme.wallBg + " 100%)";
+      stage.style.borderColor = currentArenaTheme.wallFg;
+    }
+
+    var bosses = getBosses();
+    document.getElementById("bb-boss-panel").innerHTML = bosses.map(function (b) {
+      var pct = Math.max(0, Math.round((b.hp / b.maxHp) * 100));
+      var roleIcon = b.role === "ranger" ? "🏹" : b.role === "healer" ? "💉" : "👹";
+      return '<div class="bb-hpbar-outer"><div class="bb-hpbar-fill" style="width:' + pct + '%"></div>' +
+        '<div class="bb-hpbar-label">' + roleIcon + " " + b.name + " — " + b.hp + "/" + b.maxHp + "</div></div>";
+    }).join("");
+
+    document.getElementById("bb-player-panel").innerHTML =
+      "<span><b>" + player.hp + "/" + player.maxHp + "</b> HP</span>" +
+      "<span><b>" + player.shield + "/" + player.shieldMax + "</b> 🔰</span>" +
+      "<span><b>" + player.atk + "</b> ATK</span>" +
+      "<span><b>" + player.def + "</b> DEF</span>" +
+      (player.crit > 0 ? "<span><b>" + player.crit + "%</b> Crit</span>" : "") +
+      (player.lifesteal > 0 ? "<span><b>" + player.lifesteal + "%</b> Lifesteal</span>" : "");
+
+    document.getElementById("bb-log").innerHTML = messages.slice(-8).map(function (m) { return "<div>" + m + "</div>"; }).join("");
+    document.getElementById("bb-log").scrollTop = 999999;
+
+    renderBattleTokens();
+  }
+
+  function renderBattleTokens() {
+    var seen = { player: true };
+    positionBattleToken("player", player.x, player.y, "@", "bb-player");
+    monsters.forEach(function (m) {
+      var key = "m" + m.id;
+      seen[key] = true;
+      positionBattleToken(key, m.x, m.y, m.glyph, m.isBoss ? "bb-boss" : "bb-minion", m.huge);
+    });
+    Object.keys(battleTokenEls).forEach(function (k) { if (!seen[k]) removeBattleToken(k); });
   }
 
   function monsterTurn() {
@@ -1317,6 +1571,8 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     gameOver = true;
     autoMode = false;
     updateAutoButton();
+    battleScreenShown = false;
+    document.getElementById("boss-battle-screen").classList.remove("show");
     var earned = Math.max(0, essence - runStartEssence);
     log("☠️ You collapsed in week " + depth + ".");
     document.getElementById("overlay-title").textContent = "You collapsed";
@@ -1427,6 +1683,8 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     }
 
     document.getElementById("bag-count").textContent = "(" + runBag.length + "/" + RUN_BAG_CAP + ")";
+
+    updateBossBattleScreen();
   }
 
   function startGame() {
@@ -1685,6 +1943,14 @@ import { onAuthChange, loadUserData } from "./firebase.js";
   document.getElementById("btn-left").addEventListener("click", function () { if (canManualAct()) tryMovePlayer(-1, 0); });
   document.getElementById("btn-right").addEventListener("click", function () { if (canManualAct()) tryMovePlayer(1, 0); });
   document.getElementById("btn-wait").addEventListener("click", function () {
+    if (canManualAct()) { monsterTurn(); render(); }
+  });
+
+  document.getElementById("bb-up").addEventListener("click", function () { if (canManualAct()) tryMovePlayer(0, -1); });
+  document.getElementById("bb-down").addEventListener("click", function () { if (canManualAct()) tryMovePlayer(0, 1); });
+  document.getElementById("bb-left").addEventListener("click", function () { if (canManualAct()) tryMovePlayer(-1, 0); });
+  document.getElementById("bb-right").addEventListener("click", function () { if (canManualAct()) tryMovePlayer(1, 0); });
+  document.getElementById("bb-wait").addEventListener("click", function () {
     if (canManualAct()) { monsterTurn(); render(); }
   });
 
