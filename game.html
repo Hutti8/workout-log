@@ -168,40 +168,60 @@
   /* ---- BOSS BATTLE SCREEN: full-screen takeover while inside a live arena ---- */
   #boss-battle-screen {
     position: fixed; inset: 0; z-index: 50; display: none; flex-direction: column;
-    background: radial-gradient(ellipse at 50% 0%, #1c1010 0%, #0a0a0d 70%);
+    background:
+      repeating-linear-gradient(135deg, rgba(255,255,255,0.025) 0 2px, transparent 2px 26px),
+      radial-gradient(ellipse at 50% 0%, #1f0f0f 0%, #060607 72%);
+    box-shadow: inset 0 0 0 1px rgba(255,59,59,0.22);
     padding: 14px 14px calc(14px + env(safe-area-inset-bottom));
     opacity: 0; transition: opacity .25s;
   }
   #boss-battle-screen.show { display: flex; opacity: 1; }
+  #bb-title-wrap { display: flex; justify-content: center; margin-bottom: 10px; flex-shrink: 0; }
   #bb-title {
-    text-align: center; font-weight: 800; font-size: 15px; letter-spacing: .04em;
-    text-transform: uppercase; color: #ff8a8a; margin-bottom: 8px; flex-shrink: 0;
-    text-shadow: 0 0 12px rgba(255,80,80,0.55);
+    position: relative; transform: skewX(-10deg);
+    background: linear-gradient(135deg, #4a0e0e, #1a0505);
+    border: 1px solid #ff3b3b; padding: 6px 22px;
+    box-shadow: 0 0 18px rgba(255,59,59,0.4), inset 0 0 12px rgba(255,255,255,0.06);
+  }
+  #bb-title-text {
+    display: inline-block; transform: skewX(10deg);
+    font-weight: 900; font-size: 14.5px; letter-spacing: .06em; text-transform: uppercase;
+    color: #fff; text-shadow: 0 0 10px rgba(255,59,59,0.85);
   }
   #bb-title.bb-title-enter { animation: bbTitleIn .4s cubic-bezier(.34,1.56,.64,1); }
-  @keyframes bbTitleIn { 0% { transform: scale(0.6); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
-  #bb-boss-panel { display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; }
-  .bb-boss-row { display: flex; align-items: center; gap: 8px; }
+  @keyframes bbTitleIn { 0% { transform: skewX(-10deg) scale(0.6); opacity: 0; } 100% { transform: skewX(-10deg) scale(1); opacity: 1; } }
+  #bb-boss-panel { display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; }
+  .bb-boss-row { display: flex; align-items: center; }
   .bb-boss-badge {
-    flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%; font-size: 15px;
-    background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.15);
+    flex-shrink: 0; width: 28px; height: 28px; font-size: 15px; margin-right: -7px; z-index: 2;
+    clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+    background: linear-gradient(145deg, #3a0d0d, #170606); border: 1px solid rgba(255,90,90,0.5);
     display: flex; align-items: center; justify-content: center;
   }
   .bb-hpbar-outer {
-    position: relative; height: 22px; border-radius: 7px; overflow: hidden; flex: 1;
-    border: 1px solid var(--danger); background: #1a0d0d;
+    position: relative; height: 23px; overflow: hidden; flex: 1;
+    clip-path: polygon(3% 0, 100% 0, 97% 100%, 0% 100%);
+    border: 1px solid rgba(255,80,80,0.55); background: #150a0a;
   }
-  .bb-hpbar-fill { height: 100%; background: linear-gradient(90deg, #7a0000, #e05c5c); transition: width .2s; }
+  .bb-hpbar-fill {
+    height: 100%; transition: width .2s;
+    background: repeating-linear-gradient(115deg, #7a0000 0 8px, #b81c1c 8px 16px);
+  }
   .bb-hpbar-label {
     position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-    font-size: 11.5px; font-weight: 700; text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+    font-size: 11.5px; font-weight: 800; letter-spacing: .01em; text-shadow: 0 1px 3px rgba(0,0,0,0.9);
   }
   #bb-stage {
-    flex: 1; position: relative; border-radius: 16px; overflow: hidden;
+    flex: 1; position: relative; overflow: hidden;
     margin: 10px 0; min-height: 100px;
-    border: 1px solid rgba(255,255,255,0.08);
-    box-shadow: inset 0 0 50px rgba(0,0,0,0.7);
+    border: 1px solid rgba(255,255,255,0.1);
+    box-shadow: inset 0 0 50px rgba(0,0,0,0.75);
   }
+  .bb-corner { position: absolute; width: 20px; height: 20px; opacity: .85; pointer-events: none; z-index: 3; }
+  .bb-corner-tl { top: 6px; left: 6px; border-top: 3px solid #ff3b3b; border-left: 3px solid #ff3b3b; }
+  .bb-corner-tr { top: 6px; right: 6px; border-top: 3px solid #ff3b3b; border-right: 3px solid #ff3b3b; }
+  .bb-corner-bl { bottom: 6px; left: 6px; border-bottom: 3px solid #ff3b3b; border-left: 3px solid #ff3b3b; }
+  .bb-corner-br { bottom: 6px; right: 6px; border-bottom: 3px solid #ff3b3b; border-right: 3px solid #ff3b3b; }
   #bb-stage.bb-shake { animation: bbShake .25s; }
   @keyframes bbShake {
     0%, 100% { transform: translate(0, 0); }
@@ -264,11 +284,15 @@
     75% { opacity: 1; }
     100% { opacity: 0; }
   }
-  #bb-player-panel { flex-shrink: 0; margin-bottom: 6px; font-size: 12.5px; color: var(--text-secondary); display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
-  #bb-player-panel b { color: var(--text-primary); }
+  #bb-player-panel { flex-shrink: 0; margin-bottom: 6px; font-size: 12px; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+  #bb-player-panel span {
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.14); color: var(--text-secondary);
+    padding: 4px 10px 4px 12px; clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
+  }
+  #bb-player-panel b { color: #fff; }
   #bb-log {
     flex-shrink: 0; font-size: 11.5px; color: var(--text-secondary); height: 50px; overflow-y: auto;
-    background: rgba(255,255,255,0.03); border-radius: 8px; padding: 6px 8px; margin-bottom: 8px;
+    background: rgba(255,255,255,0.03); border-left: 2px solid rgba(255,59,59,0.5); padding: 6px 8px; margin-bottom: 8px;
   }
   #bb-log div:last-child { color: var(--text-primary); }
   #bb-controls {
@@ -276,10 +300,10 @@
     gap: 6px; justify-content: center;
   }
   #bb-controls button {
-    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.18); color: #fff;
-    border-radius: 10px; font-size: 17px; touch-action: manipulation;
+    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,90,90,0.3); color: #fff;
+    font-size: 17px; touch-action: manipulation;
   }
-  #bb-controls button:active { background: var(--accent); }
+  #bb-controls button:active { background: #4a0e0e; border-color: #ff3b3b; }
   #bb-up { grid-column: 2; grid-row: 1; }
   #bb-left { grid-column: 1; grid-row: 2; }
   #bb-wait { grid-column: 2; grid-row: 2; font-size: 13px; }
@@ -335,9 +359,15 @@
 </div>
 
 <div id="boss-battle-screen">
-  <div id="bb-title"></div>
+  <div id="bb-title-wrap"><div id="bb-title"><span id="bb-title-text"></span></div></div>
   <div id="bb-boss-panel"></div>
-  <div id="bb-stage"><div id="bb-stage-inner"></div></div>
+  <div id="bb-stage">
+    <div class="bb-corner bb-corner-tl"></div>
+    <div class="bb-corner bb-corner-tr"></div>
+    <div class="bb-corner bb-corner-bl"></div>
+    <div class="bb-corner bb-corner-br"></div>
+    <div id="bb-stage-inner"></div>
+  </div>
   <div id="bb-player-panel"></div>
   <div id="bb-log"></div>
   <div id="bb-controls">
@@ -1592,7 +1622,7 @@ import { onAuthChange, loadUserData } from "./firebase.js";
   }
 
   function renderBattlePanels() {
-    document.getElementById("bb-title").textContent = "⚔️ " + (currentArenaBossName || "Boss Fight");
+    document.getElementById("bb-title-text").textContent = "⚔️ " + (currentArenaBossName || "Boss Fight");
 
     var stage = document.getElementById("bb-stage");
     if (currentArenaTheme) {
