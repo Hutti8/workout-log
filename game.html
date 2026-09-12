@@ -238,21 +238,42 @@
     100% { transform: translateY(-130px); opacity: 0; }
   }
   .bb-token {
-    position: absolute; display: flex; align-items: center; justify-content: center; overflow: visible;
+    position: absolute; z-index: 1; display: flex; align-items: center; justify-content: center; overflow: visible;
     transition: left .15s linear, top .15s linear; will-change: left, top;
   }
   .bb-token::after {
-    content: ""; position: absolute; left: 50%; bottom: -8%; transform: translateX(-50%);
-    width: 62%; height: 24%; border-radius: 50%; z-index: -1;
-    background: radial-gradient(ellipse, rgba(0,0,0,0.55) 0%, transparent 72%);
+    content: ""; position: absolute; left: 50%; bottom: -10%; transform: translateX(-50%);
+    width: 66%; height: 22%; border-radius: 50%; z-index: -2;
+    background: radial-gradient(ellipse, rgba(0,0,0,0.6) 0%, transparent 72%);
   }
-  .bb-token.bb-player { color: var(--col-hi); text-shadow: 0 0 10px rgba(126,184,247,0.75); font-weight: 700; animation: bbBob 1.4s ease-in-out infinite; }
+  .bb-token.bb-player {
+    color: var(--col-hi); text-shadow: 0 0 10px rgba(126,184,247,0.75); font-weight: 700;
+    animation: bbBob 1.4s ease-in-out infinite;
+  }
+  .bb-token.bb-player::before {
+    content: ""; position: absolute; inset: -22%; z-index: -1; border-radius: 50%;
+    background: radial-gradient(circle, rgba(126,184,247,0.28) 0%, rgba(126,184,247,0.06) 62%, transparent 76%);
+    border: 2px solid rgba(126,184,247,0.8);
+    box-shadow: 0 0 14px rgba(126,184,247,0.55), inset 0 0 8px rgba(126,184,247,0.3);
+  }
   @keyframes bbBob { 0%, 100% { margin-top: 0; } 50% { margin-top: -4px; } }
   .bb-token.bb-boss {
     color: #ff5c5c; text-shadow: 0 0 12px rgba(255,92,92,0.9); font-weight: 700;
     animation: bbPulse 1.6s ease-in-out infinite;
   }
+  .bb-token.bb-boss::before {
+    content: ""; position: absolute; inset: -24%; z-index: -1;
+    clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+    background: radial-gradient(circle, rgba(255,92,92,0.25) 0%, rgba(255,92,92,0.06) 62%, transparent 76%);
+    border: 2px solid rgba(255,92,92,0.75);
+  }
   .bb-token.bb-minion { color: #e05c5c; font-weight: 700; }
+  .bb-token.bb-minion::before {
+    content: ""; position: absolute; inset: -12%; z-index: -1;
+    clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+    background: rgba(255,92,92,0.08);
+    border: 1px solid rgba(255,92,92,0.4);
+  }
   @keyframes bbPulse { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.4); } }
   .bb-token.bb-hit-flash { animation: bbHitFlash .25s; }
   @keyframes bbHitFlash { 0% { filter: brightness(2.5); } 100% { filter: brightness(1); } }
@@ -1506,7 +1527,8 @@ import { onAuthChange, loadUserData } from "./firebase.js";
     el.textContent = glyph;
     el.style.width = geo.cell + "px";
     el.style.height = geo.cell + "px";
-    el.style.fontSize = Math.round(geo.cell * (big ? 1.2 : 0.72)) + "px";
+    var mult = big ? 1.35 : cls === "bb-minion" ? 0.6 : cls === "bb-player" ? 0.8 : 0.88;
+    el.style.fontSize = Math.round(geo.cell * mult) + "px";
     el.style.left = pos.left + "px";
     el.style.top = pos.top + "px";
   }
