@@ -189,8 +189,8 @@
         <div class="modal-title" id="exercise-editor-title">New exercise</div>
         <label class="field-label">Name</label>
         <input type="text" id="ex-editor-name" placeholder="e.g. Bench press" />
-        <div class="modal-exercise-header" style="margin-top:1rem;">
-          <span>Sets</span><span>Reps</span><span>KG</span><span></span><span></span>
+        <div class="modal-exercise-header" style="margin-top:1rem; grid-template-columns: 1fr 1fr 1fr; gap:8px;">
+          <span style="text-align:left;">Sets</span><span style="text-align:left;">Reps</span><span style="text-align:left;">KG</span>
         </div>
         <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:8px; margin-top:4px;">
           <input type="number" id="ex-editor-sets" placeholder="Sets" min="1" max="99" />
