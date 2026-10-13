@@ -62,6 +62,8 @@ onAuthChange(async (user) => {
     const data = await loadUserData(user.uid);
     data.warmupTypes = normaliseTypes(data.warmupTypes);
     data.cardioTypes = normaliseTypes(data.cardioTypes);
+    data.foodEntries = data.foodEntries || [];
+    data.macroTargets = data.macroTargets || targetsFromWeight(118);
     state = data;
     renderSetup();
     resetToIdle();
@@ -81,10 +83,11 @@ function showPage(pageId, btn) {
   document.getElementById('page-' + pageId).classList.add('active');
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
-  const titles = { today: 'Workout Log', setup: 'Setup', history: 'History' };
+  const titles = { today: 'Workout Log', setup: 'Setup', history: 'History', nutrition: 'Food' };
   document.getElementById('header-title').textContent = titles[pageId];
   if (pageId === 'setup') renderSetup();
   if (pageId === 'history') renderHistory();
+  if (pageId === 'nutrition') renderNutrition();
   if (pageId === 'today' && !isEditMode) resetToIdle();
 }
 
@@ -696,6 +699,7 @@ function renderSetup() {
   renderExerciseLibrary();
   renderWarmupTypesList();
   renderCardioTypesList();
+  renderNutritionSettings();
 }
 
 // ---- EXERCISE LIBRARY ----
@@ -894,7 +898,247 @@ async function deleteWorkout(index) {
   renderRecentWorkouts();
 }
 
+// ---- NUTRITION ----
+const MACROS = [
+  { key: 'calories', label: 'Calories', unit: 'kcal', color: '#f0a500' },
+  { key: 'protein', label: 'Protein', unit: 'g', color: '#4ade80' },
+  { key: 'carbs', label: 'Carbs', unit: 'g', color: '#7eb8f7' },
+  { key: 'fat', label: 'Fat', unit: 'g', color: '#f78fb3' },
+];
+let foodDayOffset = 0;
+let pendingFoodItems = null;
+let pendingPhoto = '';
+
+function escapeHTML(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function localDateStr(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function foodDay() {
+  const d = new Date();
+  d.setDate(d.getDate() + foodDayOffset);
+  return d;
+}
+
+function targetsFromWeight(kg) {
+  const calories = Math.round(kg * 22);
+  const protein = Math.round(kg * 2);
+  const fat = Math.round(kg * 0.8);
+  const carbs = Math.max(0, Math.round((calories - protein * 4 - fat * 9) / 4));
+  return { calories, protein, carbs, fat };
+}
+
+function renderNutrition() {
+  const day = foodDay();
+  const dayStr = localDateStr(day);
+  document.getElementById('food-day-label').textContent = foodDayOffset === 0 ? 'Today'
+    : foodDayOffset === -1 ? 'Yesterday'
+    : day.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+  document.getElementById('food-day-next').disabled = foodDayOffset >= 0;
+
+  const entries = state.foodEntries.filter(e => e.date === dayStr);
+  const totals = { calories: 0, protein: 0, carbs: 0, fat: 0 };
+  entries.forEach(e => MACROS.forEach(m => { totals[m.key] += Number(e[m.key]) || 0; }));
+
+  const t = state.macroTargets;
+  document.getElementById('macro-bars').innerHTML = MACROS.map(m => {
+    const val = Math.round(totals[m.key]);
+    const target = Number(t[m.key]) || 0;
+    const pct = target ? Math.min(100, (val / target) * 100) : 0;
+    const left = target - val;
+    const note = left >= 0 ? `${left} left` : `${-left} over`;
+    return `
+      <div class="macro-row">
+        <div class="macro-label">
+          <span>${m.label}</span>
+          <span class="macro-value">${val} / ${target} ${m.unit} · ${note}</span>
+        </div>
+        <div class="macro-bar-bg"><div class="macro-bar-fill" style="width:${pct}%; background:${m.color};"></div></div>
+      </div>`;
+  }).join('');
+
+  const list = document.getElementById('food-log-list');
+  if (entries.length === 0) {
+    list.innerHTML = '<p class="empty-state" style="padding:0.5rem 0;">Nothing logged yet.</p>';
+    return;
+  }
+  list.innerHTML = entries.slice().reverse().map(e => `
+    <div class="food-entry">
+      <div>
+        <div class="food-entry-name">${escapeHTML(e.name)}${e.grams ? ` · ${Math.round(e.grams)}g` : ''}</div>
+        <div class="food-entry-macros">${Math.round(e.calories)} kcal · P ${Math.round(e.protein)} · C ${Math.round(e.carbs)} · F ${Math.round(e.fat)}</div>
+      </div>
+      <button class="btn-danger" onclick="deleteFoodEntry('${e.id}')">🗑</button>
+    </div>`).join('');
+}
+
+document.getElementById('food-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') analyzeFood();
+});
+
+function shiftFoodDay(delta) {
+  foodDayOffset = Math.min(0, foodDayOffset + delta);
+  renderNutrition();
+}
+
+function openFoodLogger() {
+  pendingFoodItems = null;
+  pendingPhoto = '';
+  document.getElementById('food-input').value = '';
+  document.getElementById('food-photo').value = '';
+  document.getElementById('food-photo-label').textContent = 'Add photo';
+  document.getElementById('food-photo-preview').style.display = 'none';
+  document.getElementById('food-analyze-result').innerHTML = '';
+  document.getElementById('food-log-btn').style.display = 'none';
+  document.getElementById('food-logger-overlay').style.display = 'flex';
+  document.getElementById('food-input').focus();
+}
+
+function closeFoodLogger() {
+  document.getElementById('food-logger-overlay').style.display = 'none';
+  pendingFoodItems = null;
+  pendingPhoto = '';
+}
+
+function onFoodPhoto() {
+  const file = document.getElementById('food-photo').files[0];
+  if (!file) return;
+  const img = new Image();
+  img.onload = () => {
+    const scale = Math.min(1, 1024 / Math.max(img.width, img.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(img.width * scale);
+    canvas.height = Math.round(img.height * scale);
+    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+    pendingPhoto = dataUrl.split(',')[1];
+    const preview = document.getElementById('food-photo-preview');
+    preview.src = dataUrl;
+    preview.style.display = 'block';
+    document.getElementById('food-photo-label').textContent = 'Change photo';
+    URL.revokeObjectURL(img.src);
+  };
+  img.src = URL.createObjectURL(file);
+}
+
+async function analyzeFood() {
+  const text = document.getElementById('food-input').value.trim();
+  const resultEl = document.getElementById('food-analyze-result');
+  if (!text && !pendingPhoto) return;
+  if (!state.foodProxyUrl) {
+    resultEl.innerHTML = '<p class="food-error">Add the food lookup URL in Setup → Nutrition first.</p>';
+    return;
+  }
+  const btn = document.getElementById('food-analyze-btn');
+  btn.textContent = 'Analyzing…';
+  btn.disabled = true;
+  resultEl.innerHTML = '';
+  document.getElementById('food-log-btn').style.display = 'none';
+  try {
+    const res = await fetch(state.foodProxyUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, image: pendingPhoto || undefined }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `Error ${res.status}`);
+    if (!data.items || data.items.length === 0) throw new Error('No food found. Try describing it.');
+    pendingFoodItems = data.items.map(it => ({ ...it, baseGrams: it.grams || 1, base: { ...it } }));
+    renderPendingFood();
+    document.getElementById('food-log-btn').style.display = 'block';
+  } catch (e) {
+    resultEl.innerHTML = `<p class="food-error">${escapeHTML(e.message || 'Lookup failed')}</p>`;
+  }
+  btn.textContent = 'Analyze';
+  btn.disabled = false;
+}
+
+function renderPendingFood() {
+  const el = document.getElementById('food-analyze-result');
+  el.innerHTML = pendingFoodItems.map((it, i) => `
+    <div class="food-result-card">
+      <div class="food-result-top">
+        <span class="food-result-name">${escapeHTML(it.name)}</span>
+        <span class="food-result-grams"><input type="number" min="0" value="${Math.round(it.grams)}" onchange="setPendingGrams(${i}, this.value)" />g</span>
+      </div>
+      <div class="food-result-macros" id="pending-macros-${i}">${pendingMacrosText(it)}</div>
+    </div>`).join('');
+}
+
+function pendingMacrosText(it) {
+  return `${Math.round(it.calories)} kcal · P ${Math.round(it.protein)} · C ${Math.round(it.carbs)} · F ${Math.round(it.fat)}`;
+}
+
+function setPendingGrams(i, value) {
+  const it = pendingFoodItems[i];
+  const grams = Math.max(0, Number(value) || 0);
+  const ratio = grams / it.baseGrams;
+  it.grams = grams;
+  MACROS.forEach(m => { it[m.key] = it.base[m.key] * ratio; });
+  document.getElementById(`pending-macros-${i}`).textContent = pendingMacrosText(it);
+}
+
+async function confirmLogFood() {
+  if (!pendingFoodItems) return;
+  const date = localDateStr(foodDay());
+  pendingFoodItems.forEach((it, i) => {
+    state.foodEntries.push({
+      id: `${Date.now()}-${i}`,
+      date,
+      name: it.name,
+      grams: Math.round(it.grams),
+      calories: Math.round(it.calories),
+      protein: Math.round(it.protein * 10) / 10,
+      carbs: Math.round(it.carbs * 10) / 10,
+      fat: Math.round(it.fat * 10) / 10,
+    });
+  });
+  await saveState();
+  closeFoodLogger();
+  renderNutrition();
+}
+
+async function deleteFoodEntry(id) {
+  state.foodEntries = state.foodEntries.filter(e => e.id !== id);
+  await saveState();
+  renderNutrition();
+}
+
+function renderNutritionSettings() {
+  const t = state.macroTargets || targetsFromWeight(118);
+  document.getElementById('food-proxy-input').value = state.foodProxyUrl || '';
+  MACROS.forEach(m => { document.getElementById(`target-${m.key}`).value = t[m.key]; });
+}
+
+function calcMacrosFromWeight() {
+  const kg = parseFloat(document.getElementById('macro-weight-input').value);
+  if (!kg) return;
+  const t = targetsFromWeight(kg);
+  MACROS.forEach(m => { document.getElementById(`target-${m.key}`).value = t[m.key]; });
+}
+
+async function saveNutritionSettings() {
+  state.foodProxyUrl = document.getElementById('food-proxy-input').value.trim();
+  state.macroTargets = {};
+  MACROS.forEach(m => { state.macroTargets[m.key] = Number(document.getElementById(`target-${m.key}`).value) || 0; });
+  await saveState();
+  alert('Saved');
+}
+
 // ---- EXPOSE TO HTML ----
+window.shiftFoodDay = shiftFoodDay;
+window.openFoodLogger = openFoodLogger;
+window.closeFoodLogger = closeFoodLogger;
+window.onFoodPhoto = onFoodPhoto;
+window.analyzeFood = analyzeFood;
+window.setPendingGrams = setPendingGrams;
+window.confirmLogFood = confirmLogFood;
+window.deleteFoodEntry = deleteFoodEntry;
+window.calcMacrosFromWeight = calcMacrosFromWeight;
+window.saveNutritionSettings = saveNutritionSettings;
 window.handleLogin = handleLogin;
 window.handleRegister = handleRegister;
 window.handleSignOut = handleSignOut;

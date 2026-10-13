@@ -132,6 +132,24 @@
         <button class="btn-outline full-width" style="margin-top:10px;" onclick="openTypeEditor('cardio', -1)">+ Add cardio type</button>
       </div>
 
+      <div class="card">
+        <div class="card-title">🥗 Nutrition</div>
+        <label class="field-label">Food lookup URL (Cloudflare Worker)</label>
+        <input type="text" id="food-proxy-input" placeholder="https://food.yourname.workers.dev" />
+        <label class="field-label">Body weight (kg) → daily targets</label>
+        <div style="display:flex; gap:8px;">
+          <input type="number" id="macro-weight-input" placeholder="e.g. 118" min="40" max="250" step="0.5" style="flex:1;" />
+          <button class="btn-outline" onclick="calcMacrosFromWeight()">Calculate</button>
+        </div>
+        <div class="macro-target-grid">
+          <label>kcal<input type="number" id="target-calories" min="0" /></label>
+          <label>Protein g<input type="number" id="target-protein" min="0" /></label>
+          <label>Carbs g<input type="number" id="target-carbs" min="0" /></label>
+          <label>Fat g<input type="number" id="target-fat" min="0" /></label>
+        </div>
+        <button class="btn-primary full-width" style="margin-top:12px;" onclick="saveNutritionSettings()">Save</button>
+      </div>
+
     </section>
 
     <!-- PAGE: HISTORY -->
@@ -139,6 +157,30 @@
       <button class="btn-outline full-width" onclick="exportWorkouts()" style="margin-bottom:1rem;">⬇️ Export workouts</button>
       <div id="history-stats"></div>
       <div id="history-list"></div>
+    </section>
+
+    <!-- PAGE: NUTRITION -->
+    <section id="page-nutrition" class="page">
+
+      <div class="food-day-nav">
+        <button class="btn-outline" onclick="shiftFoodDay(-1)">‹</button>
+        <span id="food-day-label"></span>
+        <button class="btn-outline" id="food-day-next" onclick="shiftFoodDay(1)">›</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📊 Macros</div>
+        <div id="macro-bars"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title" style="display:flex; justify-content:space-between; align-items:center;">
+          <span>🍽️ Food log</span>
+          <button class="btn-outline" onclick="openFoodLogger()" style="padding:6px 14px; font-size:13px;">+ Add</button>
+        </div>
+        <div id="food-log-list"></div>
+      </div>
+
     </section>
 
     <!-- EXERCISE EDITOR MODAL -->
@@ -159,6 +201,26 @@
           <button class="btn-primary" style="flex:1;" onclick="saveExerciseEditor()">Save</button>
           <button class="btn-outline" style="flex:1;" onclick="closeExerciseEditor()">Cancel</button>
         </div>
+      </div>
+    </div>
+
+    <!-- FOOD LOGGER MODAL -->
+    <div id="food-logger-overlay" class="overlay" style="display:none;">
+      <div class="modal">
+        <div class="modal-title">Log food</div>
+        <label class="field-label">What did you eat?</label>
+        <input type="text" id="food-input" placeholder="e.g. 200g chicken breast and rice" />
+        <label class="btn-outline full-width food-photo-btn">
+          📷 <span id="food-photo-label">Add photo</span>
+          <input type="file" id="food-photo" accept="image/*" capture="environment" onchange="onFoodPhoto()" hidden />
+        </label>
+        <img id="food-photo-preview" class="food-photo-preview" style="display:none;" alt="" />
+        <div id="food-analyze-result"></div>
+        <div style="display:flex; gap:8px; margin-top:1rem;">
+          <button class="btn-primary" style="flex:1;" id="food-analyze-btn" onclick="analyzeFood()">Analyze</button>
+          <button class="btn-outline" style="flex:1;" onclick="closeFoodLogger()">Cancel</button>
+        </div>
+        <button class="btn-primary full-width" id="food-log-btn" style="display:none; margin-top:8px;" onclick="confirmLogFood()">✓ Log it</button>
       </div>
     </div>
 
@@ -194,6 +256,10 @@
     <button class="nav-btn" onclick="showPage('history', this)">
       <span class="nav-icon">📈</span>
       <span class="nav-label">History</span>
+    </button>
+    <button class="nav-btn" onclick="showPage('nutrition', this)">
+      <span class="nav-icon">🥗</span>
+      <span class="nav-label">Food</span>
     </button>
   </nav>
 
