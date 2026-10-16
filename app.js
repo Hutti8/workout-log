@@ -1021,6 +1021,10 @@ function onFoodPhoto() {
     document.getElementById('food-photo-label').textContent = 'Change photo';
     URL.revokeObjectURL(img.src);
   };
+  img.onerror = () => {
+    document.getElementById('food-analyze-result').innerHTML =
+      `<p class="food-error">Could not open that photo (${escapeHTML(file.type || 'unknown type')}). Try another one or take a screenshot of it.</p>`;
+  };
   img.src = URL.createObjectURL(file);
 }
 
