@@ -211,10 +211,8 @@
         <label class="field-label">What did you eat?</label>
         <input type="text" id="food-input" placeholder="e.g. 200g chicken breast and rice" />
         <div style="display:flex; gap:8px;">
-          <label class="btn-outline food-photo-btn" style="flex:1;">
-            📷 Take photo
-            <input type="file" id="food-photo-camera" accept="image/*" capture="environment" onchange="onFoodPhoto(this)" hidden />
-          </label>
+          <button class="btn-outline food-photo-btn" style="flex:1;" onclick="openFoodCamera()">📷 Take photo</button>
+          <input type="file" id="food-photo-camera" accept="image/*" capture="environment" onchange="onFoodPhoto(this)" hidden />
           <label class="btn-outline food-photo-btn" style="flex:1;">
             🖼️ Choose photo
             <input type="file" id="food-photo" accept="image/*" onchange="onFoodPhoto(this)" hidden />
@@ -227,6 +225,16 @@
           <button class="btn-outline" style="flex:1;" onclick="closeFoodLogger()">Cancel</button>
         </div>
         <button class="btn-primary full-width" id="food-log-btn" style="display:none; margin-top:8px;" onclick="confirmLogFood()">✓ Log it</button>
+      </div>
+    </div>
+
+    <!-- IN-APP CAMERA -->
+    <div id="food-camera" class="food-camera" style="display:none;">
+      <video id="food-camera-video" autoplay playsinline muted></video>
+      <div class="food-camera-bar">
+        <button class="btn-outline" onclick="closeFoodCamera()">Cancel</button>
+        <button class="food-camera-snap" onclick="snapFoodPhoto()" aria-label="Take photo"></button>
+        <span style="width:80px;"></span>
       </div>
     </div>
 

@@ -1000,6 +1000,7 @@ function closeFoodLogger() {
   document.getElementById('food-logger-overlay').style.display = 'none';
   pendingFoodItems = null;
   pendingPhotos = [];
+  closeFoodCamera();
 }
 
 function renderFoodPhotos() {
@@ -1015,6 +1016,56 @@ function removeFoodPhoto(i) {
   renderFoodPhotos();
 }
 
+function addFoodPhoto(source, width, height) {
+  const scale = Math.min(1, 1024 / Math.max(width, height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(width * scale);
+  canvas.height = Math.round(height * scale);
+  canvas.getContext('2d').drawImage(source, 0, 0, canvas.width, canvas.height);
+  pendingPhotos.push(canvas.toDataURL('image/jpeg', 0.8).split(',')[1]);
+  renderFoodPhotos();
+}
+
+// The phone's own camera app can make Android kill this tab, so snap inside the page instead.
+let foodCameraStream = null;
+
+async function openFoodCamera() {
+  const resultEl = document.getElementById('food-analyze-result');
+  if (pendingPhotos.length >= MAX_FOOD_PHOTOS) {
+    resultEl.innerHTML = `<p class="food-error">Max ${MAX_FOOD_PHOTOS} photos.</p>`;
+    return;
+  }
+  if (!navigator.mediaDevices?.getUserMedia) {
+    document.getElementById('food-photo-camera').click();
+    return;
+  }
+  try {
+    foodCameraStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1440 } },
+      audio: false,
+    });
+  } catch (e) {
+    resultEl.innerHTML = '<p class="food-error">Camera blocked. Allow camera access for this site in the browser settings, or use Choose photo.</p>';
+    return;
+  }
+  document.getElementById('food-camera-video').srcObject = foodCameraStream;
+  document.getElementById('food-camera').style.display = 'flex';
+}
+
+function snapFoodPhoto() {
+  const video = document.getElementById('food-camera-video');
+  if (!video.videoWidth) return;
+  addFoodPhoto(video, video.videoWidth, video.videoHeight);
+  closeFoodCamera();
+}
+
+function closeFoodCamera() {
+  if (foodCameraStream) foodCameraStream.getTracks().forEach(t => t.stop());
+  foodCameraStream = null;
+  document.getElementById('food-camera-video').srcObject = null;
+  document.getElementById('food-camera').style.display = 'none';
+}
+
 function onFoodPhoto(input) {
   const file = input.files[0];
   input.value = '';
@@ -1025,13 +1076,7 @@ function onFoodPhoto(input) {
   }
   const img = new Image();
   img.onload = () => {
-    const scale = Math.min(1, 1024 / Math.max(img.width, img.height));
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.round(img.width * scale);
-    canvas.height = Math.round(img.height * scale);
-    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-    pendingPhotos.push(canvas.toDataURL('image/jpeg', 0.8).split(',')[1]);
-    renderFoodPhotos();
+    addFoodPhoto(img, img.width, img.height);
     URL.revokeObjectURL(img.src);
   };
   img.onerror = () => {
@@ -1151,6 +1196,9 @@ window.openFoodLogger = openFoodLogger;
 window.closeFoodLogger = closeFoodLogger;
 window.onFoodPhoto = onFoodPhoto;
 window.removeFoodPhoto = removeFoodPhoto;
+window.openFoodCamera = openFoodCamera;
+window.snapFoodPhoto = snapFoodPhoto;
+window.closeFoodCamera = closeFoodCamera;
 window.analyzeFood = analyzeFood;
 window.setPendingGrams = setPendingGrams;
 window.confirmLogFood = confirmLogFood;

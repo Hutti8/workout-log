@@ -286,3 +286,9 @@ body.girly .theme-btn:hover { background: #1a4f9e; border-color: #1a4f9e; }
 .macro-target-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
 .macro-target-grid label { font-size: 12px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; }
 .macro-target-grid input { margin-top: 4px; }
+.food-camera { position: fixed; inset: 0; z-index: 200; background: #000; flex-direction: column; }
+.food-camera video { flex: 1; width: 100%; min-height: 0; object-fit: contain; }
+.food-camera-bar { display: flex; align-items: center; justify-content: space-between; padding: 16px 24px calc(16px + env(safe-area-inset-bottom)); }
+.food-camera-bar .btn-outline { width: 80px; }
+.food-camera-snap { width: 72px; height: 72px; border-radius: 50%; border: 5px solid #fff; background: rgba(255,255,255,0.25); cursor: pointer; }
+.food-camera-snap:active { background: #fff; }
