@@ -210,10 +210,16 @@
         <div class="modal-title">Log food</div>
         <label class="field-label">What did you eat?</label>
         <input type="text" id="food-input" placeholder="e.g. 200g chicken breast and rice" />
-        <label class="btn-outline full-width food-photo-btn">
-          📷 <span id="food-photo-label">Add photo</span>
-          <input type="file" id="food-photo" accept="image/*" onchange="onFoodPhoto()" hidden />
-        </label>
+        <div style="display:flex; gap:8px;">
+          <label class="btn-outline food-photo-btn" style="flex:1;">
+            📷 Take photo
+            <input type="file" id="food-photo-camera" accept="image/*" capture="environment" onchange="onFoodPhoto(this)" hidden />
+          </label>
+          <label class="btn-outline food-photo-btn" style="flex:1;">
+            🖼️ Choose photo
+            <input type="file" id="food-photo" accept="image/*" onchange="onFoodPhoto(this)" hidden />
+          </label>
+        </div>
         <img id="food-photo-preview" class="food-photo-preview" style="display:none;" alt="" />
         <div id="food-analyze-result"></div>
         <div style="display:flex; gap:8px; margin-top:1rem;">

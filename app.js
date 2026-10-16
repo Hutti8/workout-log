@@ -989,7 +989,7 @@ function openFoodLogger() {
   pendingPhoto = '';
   document.getElementById('food-input').value = '';
   document.getElementById('food-photo').value = '';
-  document.getElementById('food-photo-label').textContent = 'Add photo';
+  document.getElementById('food-photo-camera').value = '';
   document.getElementById('food-photo-preview').style.display = 'none';
   document.getElementById('food-analyze-result').innerHTML = '';
   document.getElementById('food-log-btn').style.display = 'none';
@@ -1003,8 +1003,8 @@ function closeFoodLogger() {
   pendingPhoto = '';
 }
 
-function onFoodPhoto() {
-  const file = document.getElementById('food-photo').files[0];
+function onFoodPhoto(input) {
+  const file = input.files[0];
   if (!file) return;
   const img = new Image();
   img.onload = () => {
@@ -1017,9 +1017,7 @@ function onFoodPhoto() {
     pendingPhoto = dataUrl.split(',')[1];
     const preview = document.getElementById('food-photo-preview');
     preview.src = dataUrl;
-    preview.style.display = 'block';
-    document.getElementById('food-photo-label').textContent = 'Change photo';
-    URL.revokeObjectURL(img.src);
+    preview.style.display = 'block';    URL.revokeObjectURL(img.src);
   };
   img.onerror = () => {
     document.getElementById('food-analyze-result').innerHTML =
