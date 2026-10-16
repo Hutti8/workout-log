@@ -907,7 +907,8 @@ const MACROS = [
 ];
 let foodDayOffset = 0;
 let pendingFoodItems = null;
-let pendingPhoto = '';
+let pendingPhotos = [];
+const MAX_FOOD_PHOTOS = 4;
 
 function escapeHTML(s) {
   return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -986,11 +987,9 @@ function shiftFoodDay(delta) {
 
 function openFoodLogger() {
   pendingFoodItems = null;
-  pendingPhoto = '';
+  pendingPhotos = [];
+  renderFoodPhotos();
   document.getElementById('food-input').value = '';
-  document.getElementById('food-photo').value = '';
-  document.getElementById('food-photo-camera').value = '';
-  document.getElementById('food-photo-preview').style.display = 'none';
   document.getElementById('food-analyze-result').innerHTML = '';
   document.getElementById('food-log-btn').style.display = 'none';
   document.getElementById('food-logger-overlay').style.display = 'flex';
@@ -1000,12 +999,30 @@ function openFoodLogger() {
 function closeFoodLogger() {
   document.getElementById('food-logger-overlay').style.display = 'none';
   pendingFoodItems = null;
-  pendingPhoto = '';
+  pendingPhotos = [];
+}
+
+function renderFoodPhotos() {
+  document.getElementById('food-photo-preview').innerHTML = pendingPhotos.map((p, i) => `
+    <div class="food-photo-thumb">
+      <img src="data:image/jpeg;base64,${p}" alt="" />
+      <button onclick="removeFoodPhoto(${i})">✕</button>
+    </div>`).join('');
+}
+
+function removeFoodPhoto(i) {
+  pendingPhotos.splice(i, 1);
+  renderFoodPhotos();
 }
 
 function onFoodPhoto(input) {
   const file = input.files[0];
+  input.value = '';
   if (!file) return;
+  if (pendingPhotos.length >= MAX_FOOD_PHOTOS) {
+    document.getElementById('food-analyze-result').innerHTML = `<p class="food-error">Max ${MAX_FOOD_PHOTOS} photos.</p>`;
+    return;
+  }
   const img = new Image();
   img.onload = () => {
     const scale = Math.min(1, 1024 / Math.max(img.width, img.height));
@@ -1013,11 +1030,9 @@ function onFoodPhoto(input) {
     canvas.width = Math.round(img.width * scale);
     canvas.height = Math.round(img.height * scale);
     canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-    pendingPhoto = dataUrl.split(',')[1];
-    const preview = document.getElementById('food-photo-preview');
-    preview.src = dataUrl;
-    preview.style.display = 'block';    URL.revokeObjectURL(img.src);
+    pendingPhotos.push(canvas.toDataURL('image/jpeg', 0.8).split(',')[1]);
+    renderFoodPhotos();
+    URL.revokeObjectURL(img.src);
   };
   img.onerror = () => {
     document.getElementById('food-analyze-result').innerHTML =
@@ -1029,7 +1044,7 @@ function onFoodPhoto(input) {
 async function analyzeFood() {
   const text = document.getElementById('food-input').value.trim();
   const resultEl = document.getElementById('food-analyze-result');
-  if (!text && !pendingPhoto) return;
+  if (!text && pendingPhotos.length === 0) return;
   if (!state.foodProxyUrl) {
     resultEl.innerHTML = '<p class="food-error">Add the food lookup URL in Setup → Nutrition first.</p>';
     return;
@@ -1043,7 +1058,7 @@ async function analyzeFood() {
     const res = await fetch(state.foodProxyUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, image: pendingPhoto || undefined }),
+      body: JSON.stringify({ text, images: pendingPhotos, image: pendingPhotos[0] }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || `Error ${res.status}`);
@@ -1135,6 +1150,7 @@ window.shiftFoodDay = shiftFoodDay;
 window.openFoodLogger = openFoodLogger;
 window.closeFoodLogger = closeFoodLogger;
 window.onFoodPhoto = onFoodPhoto;
+window.removeFoodPhoto = removeFoodPhoto;
 window.analyzeFood = analyzeFood;
 window.setPendingGrams = setPendingGrams;
 window.confirmLogFood = confirmLogFood;

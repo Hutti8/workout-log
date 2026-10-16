@@ -4,6 +4,7 @@
 
 const ALLOWED_ORIGINS = ['https://hutti8.github.io', 'http://localhost:5500', 'http://127.0.0.1:5500'];
 const MAX_IMAGE_CHARS = 2_000_000;
+const MAX_IMAGES = 4;
 
 const SYSTEM = `You estimate nutrition for food a person ate. Split the meal into its separate foods.
 For each food give a short name, the portion in grams, and calories, protein, carbs and fat for that portion.
@@ -60,12 +61,13 @@ export default {
     let input;
     try { input = await request.json(); } catch { return reply(origin, 400, { error: 'Bad JSON' }); }
     const text = String(input.text || '').slice(0, 500);
-    const image = input.image ? String(input.image) : '';
-    if (!text && !image) return reply(origin, 400, { error: 'Send text or a photo' });
-    if (image.length > MAX_IMAGE_CHARS) return reply(origin, 413, { error: 'Photo too large' });
+    const images = (Array.isArray(input.images) ? input.images : input.image ? [input.image] : [])
+      .slice(0, MAX_IMAGES).map(String);
+    if (!text && images.length === 0) return reply(origin, 400, { error: 'Send text or a photo' });
+    if (images.some(img => img.length > MAX_IMAGE_CHARS)) return reply(origin, 413, { error: 'Photo too large' });
 
-    const content = [];
-    if (image) content.push({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: image } });
+    const content = images.map(data => ({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data } }));
+    if (images.length > 1) content.push({ type: 'text', text: 'These photos all show the same food (e.g. the packet and its nutrition label). Combine them; do not count it twice.' });
     content.push({ type: 'text', text: text || 'What food is in this photo?' });
 
     const res = await fetch('https://api.anthropic.com/v1/messages', {
