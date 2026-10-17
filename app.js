@@ -63,6 +63,7 @@ onAuthChange(async (user) => {
     data.warmupTypes = normaliseTypes(data.warmupTypes);
     data.cardioTypes = normaliseTypes(data.cardioTypes);
     data.foodEntries = data.foodEntries || [];
+    data.foodFavourites = data.foodFavourites || [];
     data.macroTargets = data.macroTargets || targetsFromWeight(118);
     state = data;
     renderSetup();
@@ -906,7 +907,7 @@ const MACROS = [
   { key: 'fat', label: 'Fat', unit: 'g', color: '#f78fb3' },
 ];
 let foodDayOffset = 0;
-let pendingFoodItems = null;
+let pendingFoodItems = [];
 let pendingPhotos = [];
 const MAX_FOOD_PHOTOS = 4;
 
@@ -966,14 +967,81 @@ function renderNutrition() {
     list.innerHTML = '<p class="empty-state" style="padding:0.5rem 0;">Nothing logged yet.</p>';
     return;
   }
-  list.innerHTML = entries.slice().reverse().map(e => `
+  list.innerHTML = entries.slice().reverse().map(e => {
+    const isFav = state.foodFavourites.some(f => f.name === e.name);
+    return `
     <div class="food-entry">
       <div>
         <div class="food-entry-name">${escapeHTML(e.name)}${e.grams ? ` · ${Math.round(e.grams)}g` : ''}</div>
         <div class="food-entry-macros">${Math.round(e.calories)} kcal · P ${Math.round(e.protein)} · C ${Math.round(e.carbs)} · F ${Math.round(e.fat)}</div>
       </div>
-      <button class="btn-danger" onclick="deleteFoodEntry('${e.id}')">🗑</button>
+      <div style="display:flex; gap:6px;">
+        <button class="food-star ${isFav ? 'on' : ''}" onclick="toggleFoodFavourite('${e.id}')" aria-label="Favourite">${isFav ? '★' : '☆'}</button>
+        <button class="btn-danger" onclick="deleteFoodEntry('${e.id}')">🗑</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function foodMacros(it) {
+  return { name: it.name, grams: Math.round(it.grams), calories: Math.round(it.calories),
+    protein: Math.round(it.protein * 10) / 10, carbs: Math.round(it.carbs * 10) / 10, fat: Math.round(it.fat * 10) / 10 };
+}
+
+async function toggleFoodFavourite(entryId) {
+  const entry = state.foodEntries.find(e => e.id === entryId);
+  if (!entry) return;
+  const i = state.foodFavourites.findIndex(f => f.name === entry.name);
+  if (i >= 0) state.foodFavourites.splice(i, 1);
+  else state.foodFavourites.push(foodMacros(entry));
+  state.foodFavourites.sort((a, b) => a.name.localeCompare(b.name));
+  await saveState();
+  renderNutrition();
+}
+
+function renderFoodFavourites() {
+  const el = document.getElementById('food-fav-list');
+  if (state.foodFavourites.length === 0) {
+    el.innerHTML = '<p class="food-fav-hint">Tip: tap ☆ on a logged food to add it here.</p>';
+    return;
+  }
+  el.innerHTML = state.foodFavourites.map((f, i) => `
+    <button class="food-fav-chip" onclick="addFavouriteToPending(${i})">
+      ${escapeHTML(f.name)} <span>${Math.round(f.calories)} kcal</span>
+    </button>`).join('');
+}
+
+function addFavouriteToPending(i) {
+  const f = state.foodFavourites[i];
+  pendingFoodItems.push({ ...f, fav: true, baseGrams: f.grams || 1, base: { ...f } });
+  renderPendingFood();
+}
+
+function removePendingFood(i) {
+  pendingFoodItems.splice(i, 1);
+  renderPendingFood();
+}
+
+function renderFavouriteSettings() {
+  const el = document.getElementById('food-fav-settings');
+  if (state.foodFavourites.length === 0) {
+    el.innerHTML = '<p class="empty-state" style="padding:0.5rem 0;">None yet. Tap ☆ on a logged food.</p>';
+    return;
+  }
+  el.innerHTML = state.foodFavourites.map((f, i) => `
+    <div class="setup-item">
+      <div>
+        <div class="setup-item-name">${escapeHTML(f.name)}</div>
+        <div class="setup-item-meta">${f.grams}g · ${Math.round(f.calories)} kcal · P ${Math.round(f.protein)} · C ${Math.round(f.carbs)} · F ${Math.round(f.fat)}</div>
+      </div>
+      <button class="btn-danger" onclick="removeFoodFavourite(${i})">🗑</button>
     </div>`).join('');
+}
+
+async function removeFoodFavourite(i) {
+  state.foodFavourites.splice(i, 1);
+  await saveState();
+  renderFavouriteSettings();
 }
 
 document.getElementById('food-input').addEventListener('keydown', e => {
@@ -986,19 +1054,18 @@ function shiftFoodDay(delta) {
 }
 
 function openFoodLogger() {
-  pendingFoodItems = null;
+  pendingFoodItems = [];
   pendingPhotos = [];
   renderFoodPhotos();
+  renderFoodFavourites();
+  renderPendingFood();
   document.getElementById('food-input').value = '';
-  document.getElementById('food-analyze-result').innerHTML = '';
-  document.getElementById('food-log-btn').style.display = 'none';
   document.getElementById('food-logger-overlay').style.display = 'flex';
-  document.getElementById('food-input').focus();
 }
 
 function closeFoodLogger() {
   document.getElementById('food-logger-overlay').style.display = 'none';
-  pendingFoodItems = null;
+  pendingFoodItems = [];
   pendingPhotos = [];
   closeFoodCamera();
 }
@@ -1030,9 +1097,8 @@ function addFoodPhoto(source, width, height) {
 let foodCameraStream = null;
 
 async function openFoodCamera() {
-  const resultEl = document.getElementById('food-analyze-result');
   if (pendingPhotos.length >= MAX_FOOD_PHOTOS) {
-    resultEl.innerHTML = `<p class="food-error">Max ${MAX_FOOD_PHOTOS} photos.</p>`;
+    showFoodError(`Max ${MAX_FOOD_PHOTOS} photos.`);
     return;
   }
   if (!navigator.mediaDevices?.getUserMedia) {
@@ -1045,7 +1111,7 @@ async function openFoodCamera() {
       audio: false,
     });
   } catch (e) {
-    resultEl.innerHTML = '<p class="food-error">Camera blocked. Allow camera access for this site in the browser settings, or use Choose photo.</p>';
+    showFoodError('Camera blocked. Allow camera access for this site in the browser settings, or use Choose photo.');
     return;
   }
   document.getElementById('food-camera-video').srcObject = foodCameraStream;
@@ -1071,7 +1137,7 @@ function onFoodPhoto(input) {
   input.value = '';
   if (!file) return;
   if (pendingPhotos.length >= MAX_FOOD_PHOTOS) {
-    document.getElementById('food-analyze-result').innerHTML = `<p class="food-error">Max ${MAX_FOOD_PHOTOS} photos.</p>`;
+    showFoodError(`Max ${MAX_FOOD_PHOTOS} photos.`);
     return;
   }
   const img = new Image();
@@ -1080,25 +1146,21 @@ function onFoodPhoto(input) {
     URL.revokeObjectURL(img.src);
   };
   img.onerror = () => {
-    document.getElementById('food-analyze-result').innerHTML =
-      `<p class="food-error">Could not open that photo (${escapeHTML(file.type || 'unknown type')}). Try another one or take a screenshot of it.</p>`;
+    showFoodError(`Could not open that photo (${file.type || 'unknown type'}). Try another one or take a screenshot of it.`);
   };
   img.src = URL.createObjectURL(file);
 }
 
 async function analyzeFood() {
   const text = document.getElementById('food-input').value.trim();
-  const resultEl = document.getElementById('food-analyze-result');
   if (!text && pendingPhotos.length === 0) return;
   if (!state.foodProxyUrl) {
-    resultEl.innerHTML = '<p class="food-error">Add the food lookup URL in Setup → Nutrition first.</p>';
+    showFoodError('Add the food lookup URL in Setup → Nutrition first.');
     return;
   }
   const btn = document.getElementById('food-analyze-btn');
   btn.textContent = 'Analyzing…';
   btn.disabled = true;
-  resultEl.innerHTML = '';
-  document.getElementById('food-log-btn').style.display = 'none';
   try {
     const res = await fetch(state.foodProxyUrl, {
       method: 'POST',
@@ -1108,11 +1170,14 @@ async function analyzeFood() {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || `Error ${res.status}`);
     if (!data.items || data.items.length === 0) throw new Error('No food found. Try describing it.');
-    pendingFoodItems = data.items.map(it => ({ ...it, baseGrams: it.grams || 1, base: { ...it } }));
+    // A new lookup replaces the previous AI result but keeps favourites already picked.
+    pendingFoodItems = [
+      ...pendingFoodItems.filter(it => it.fav),
+      ...data.items.map(it => ({ ...it, baseGrams: it.grams || 1, base: { ...it } })),
+    ];
     renderPendingFood();
-    document.getElementById('food-log-btn').style.display = 'block';
   } catch (e) {
-    resultEl.innerHTML = `<p class="food-error">${escapeHTML(e.message || 'Lookup failed')}</p>`;
+    showFoodError(e.message || 'Lookup failed');
   }
   btn.textContent = 'Analyze';
   btn.disabled = false;
@@ -1124,10 +1189,18 @@ function renderPendingFood() {
     <div class="food-result-card">
       <div class="food-result-top">
         <span class="food-result-name">${escapeHTML(it.name)}</span>
-        <span class="food-result-grams"><input type="number" min="0" value="${Math.round(it.grams)}" onchange="setPendingGrams(${i}, this.value)" />g</span>
+        <span class="food-result-grams"><input type="number" min="0" value="${Math.round(it.grams)}" onchange="setPendingGrams(${i}, this.value)" />g
+          <button class="food-result-remove" onclick="removePendingFood(${i})" aria-label="Remove">✕</button></span>
       </div>
       <div class="food-result-macros" id="pending-macros-${i}">${pendingMacrosText(it)}</div>
     </div>`).join('');
+  document.getElementById('food-log-btn').style.display = pendingFoodItems.length ? 'block' : 'none';
+}
+
+function showFoodError(message) {
+  renderPendingFood();
+  document.getElementById('food-analyze-result')
+    .insertAdjacentHTML('beforeend', `<p class="food-error">${escapeHTML(message)}</p>`);
 }
 
 function pendingMacrosText(it) {
@@ -1144,19 +1217,10 @@ function setPendingGrams(i, value) {
 }
 
 async function confirmLogFood() {
-  if (!pendingFoodItems) return;
+  if (pendingFoodItems.length === 0) return;
   const date = localDateStr(foodDay());
   pendingFoodItems.forEach((it, i) => {
-    state.foodEntries.push({
-      id: `${Date.now()}-${i}`,
-      date,
-      name: it.name,
-      grams: Math.round(it.grams),
-      calories: Math.round(it.calories),
-      protein: Math.round(it.protein * 10) / 10,
-      carbs: Math.round(it.carbs * 10) / 10,
-      fat: Math.round(it.fat * 10) / 10,
-    });
+    state.foodEntries.push({ id: `${Date.now()}-${i}`, date, ...foodMacros(it) });
   });
   await saveState();
   closeFoodLogger();
@@ -1173,6 +1237,7 @@ function renderNutritionSettings() {
   const t = state.macroTargets || targetsFromWeight(118);
   document.getElementById('food-proxy-input').value = state.foodProxyUrl || '';
   MACROS.forEach(m => { document.getElementById(`target-${m.key}`).value = t[m.key]; });
+  renderFavouriteSettings();
 }
 
 function calcMacrosFromWeight() {
@@ -1196,6 +1261,10 @@ window.openFoodLogger = openFoodLogger;
 window.closeFoodLogger = closeFoodLogger;
 window.onFoodPhoto = onFoodPhoto;
 window.removeFoodPhoto = removeFoodPhoto;
+window.toggleFoodFavourite = toggleFoodFavourite;
+window.addFavouriteToPending = addFavouriteToPending;
+window.removePendingFood = removePendingFood;
+window.removeFoodFavourite = removeFoodFavourite;
 window.openFoodCamera = openFoodCamera;
 window.snapFoodPhoto = snapFoodPhoto;
 window.closeFoodCamera = closeFoodCamera;

@@ -292,3 +292,11 @@ body.girly .theme-btn:hover { background: #1a4f9e; border-color: #1a4f9e; }
 .food-camera-bar .btn-outline { width: 80px; }
 .food-camera-snap { width: 72px; height: 72px; border-radius: 50%; border: 5px solid #fff; background: rgba(255,255,255,0.25); cursor: pointer; }
 .food-camera-snap:active { background: #fff; }
+.food-fav-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.food-fav-chip { background: var(--bg-input); border: 1px solid var(--border); color: var(--text-primary); border-radius: 999px; padding: 7px 12px; font-size: 13px; cursor: pointer; text-align: left; }
+.food-fav-chip span { color: var(--text-secondary); margin-left: 4px; }
+.food-fav-chip:active { border-color: var(--col-hi); }
+.food-fav-hint { font-size: 13px; color: var(--text-secondary); }
+.food-star { background: none; border: 1px solid var(--border); border-radius: 8px; color: var(--text-secondary); font-size: 16px; width: 34px; cursor: pointer; }
+.food-star.on { color: #f0a500; border-color: #f0a500; }
+.food-result-remove { background: none; border: none; color: var(--text-secondary); font-size: 14px; padding: 4px 2px 4px 6px; cursor: pointer; }
