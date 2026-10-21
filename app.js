@@ -1084,7 +1084,7 @@ function removeFoodPhoto(i) {
 }
 
 function addFoodPhoto(source, width, height) {
-  const scale = Math.min(1, 1024 / Math.max(width, height));
+  const scale = Math.min(1, 1280 / Math.max(width, height));
   const canvas = document.createElement('canvas');
   canvas.width = Math.round(width * scale);
   canvas.height = Math.round(height * scale);
@@ -1114,8 +1114,34 @@ async function openFoodCamera() {
     showFoodError('Camera blocked. Allow camera access for this site in the browser settings, or use Choose photo.');
     return;
   }
+  foodCameraStream = await useMainBackCamera(foodCameraStream);
   document.getElementById('food-camera-video').srcObject = foodCameraStream;
   document.getElementById('food-camera').style.display = 'flex';
+}
+
+// Phones with several back lenses may hand a web page the 0.5x ultra-wide, which makes labels tiny.
+async function useMainBackCamera(stream) {
+  try {
+    const track = stream.getVideoTracks()[0];
+    const zoom = track.getCapabilities?.().zoom;
+    if (zoom && zoom.min < 1 && zoom.max >= 1) {
+      await track.applyConstraints({ advanced: [{ zoom: 1 }] });
+      return stream;
+    }
+    const backs = (await navigator.mediaDevices.enumerateDevices())
+      .filter(d => d.kind === 'videoinput' && /back|rear|environment/i.test(d.label));
+    const main = backs.find(d => /camera2 0\b/.test(d.label))
+      || backs.find(d => !/ultra|tele|dual|triple|macro|depth/i.test(d.label));
+    if (!main || main.deviceId === track.getSettings().deviceId) return stream;
+    const mainStream = await navigator.mediaDevices.getUserMedia({
+      video: { deviceId: { exact: main.deviceId }, width: { ideal: 1920 }, height: { ideal: 1440 } },
+      audio: false,
+    });
+    stream.getTracks().forEach(t => t.stop());
+    return mainStream;
+  } catch {
+    return stream;
+  }
 }
 
 function snapFoodPhoto() {
