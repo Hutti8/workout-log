@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#1a1a1e" />
   <title>Workout Log</title>
-  <link rel="stylesheet" href="style.css?v=20261021" />
+  <link rel="stylesheet" href="style.css?v=20261026" />
 </head>
 <body>
 
@@ -186,6 +186,8 @@
         <div id="food-log-list"></div>
       </div>
 
+      <button class="btn-outline full-width" onclick="exportFood()">⬇️ Export food log</button>
+
     </section>
 
     <!-- EXERCISE EDITOR MODAL -->
@@ -285,7 +287,7 @@
   </nav>
 
   <!-- Bump ?v= whenever app.js or style.css change, so phones never pair a new page with cached old code -->
-  <script src="app.js?v=20261021" type="module"></script>
+  <script src="app.js?v=20261026" type="module"></script>
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations().then(regs => regs.forEach(r => r.unregister()));

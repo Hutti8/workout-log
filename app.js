@@ -1259,6 +1259,21 @@ async function deleteFoodEntry(id) {
   renderNutrition();
 }
 
+function exportFood() {
+  const out = {
+    exportedAt: new Date().toISOString(),
+    macroTargets: state.macroTargets,
+    foodFavourites: state.foodFavourites,
+    foodEntries: state.foodEntries.slice().sort((a, b) => a.date.localeCompare(b.date)),
+  };
+  const url = URL.createObjectURL(new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `food-log-${localDateStr(new Date())}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 function renderNutritionSettings() {
   const t = state.macroTargets || targetsFromWeight(118);
   document.getElementById('food-proxy-input').value = state.foodProxyUrl || '';
@@ -1288,6 +1303,7 @@ window.closeFoodLogger = closeFoodLogger;
 window.onFoodPhoto = onFoodPhoto;
 window.removeFoodPhoto = removeFoodPhoto;
 window.toggleFoodFavourite = toggleFoodFavourite;
+window.exportFood = exportFood;
 window.addFavouriteToPending = addFavouriteToPending;
 window.removePendingFood = removePendingFood;
 window.removeFoodFavourite = removeFoodFavourite;
