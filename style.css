@@ -300,3 +300,5 @@ body.girly .theme-btn:hover { background: #1a4f9e; border-color: #1a4f9e; }
 .food-star { background: none; border: 1px solid var(--border); border-radius: 8px; color: var(--text-secondary); font-size: 16px; width: 34px; cursor: pointer; }
 .food-star.on { color: #f0a500; border-color: #f0a500; }
 .food-result-remove { background: none; border: none; color: var(--text-secondary); font-size: 14px; padding: 4px 2px 4px 6px; cursor: pointer; }
+.creatine-row { display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1.25rem; cursor: pointer; font-weight: 500; }
+.creatine-row input { width: 24px; height: 24px; accent-color: #4ade80; cursor: pointer; }

@@ -64,6 +64,7 @@ onAuthChange(async (user) => {
     data.cardioTypes = normaliseTypes(data.cardioTypes);
     data.foodEntries = data.foodEntries || [];
     data.foodFavourites = data.foodFavourites || [];
+    data.creatineDays = data.creatineDays || {};
     data.macroTargets = data.macroTargets || targetsFromWeight(118);
     state = data;
     renderSetup();
@@ -940,6 +941,7 @@ function renderNutrition() {
     : foodDayOffset === -1 ? 'Yesterday'
     : day.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
   document.getElementById('food-day-next').disabled = foodDayOffset >= 0;
+  document.getElementById('creatine-check').checked = !!state.creatineDays[dayStr];
 
   const entries = state.foodEntries.filter(e => e.date === dayStr);
   const totals = { calories: 0, protein: 0, carbs: 0, fat: 0 };
@@ -1047,6 +1049,13 @@ async function removeFoodFavourite(i) {
 document.getElementById('food-input').addEventListener('keydown', e => {
   if (e.key === 'Enter') analyzeFood();
 });
+
+async function toggleCreatine(taken) {
+  const day = localDateStr(foodDay());
+  if (taken) state.creatineDays[day] = true;
+  else delete state.creatineDays[day];
+  await saveState();
+}
 
 function shiftFoodDay(delta) {
   foodDayOffset = Math.min(0, foodDayOffset + delta);
@@ -1264,6 +1273,7 @@ function exportFood() {
     exportedAt: new Date().toISOString(),
     macroTargets: state.macroTargets,
     foodFavourites: state.foodFavourites,
+    creatineDays: Object.keys(state.creatineDays).sort(),
     foodEntries: state.foodEntries.slice().sort((a, b) => a.date.localeCompare(b.date)),
   };
   const url = URL.createObjectURL(new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' }));
@@ -1304,6 +1314,7 @@ window.onFoodPhoto = onFoodPhoto;
 window.removeFoodPhoto = removeFoodPhoto;
 window.toggleFoodFavourite = toggleFoodFavourite;
 window.exportFood = exportFood;
+window.toggleCreatine = toggleCreatine;
 window.addFavouriteToPending = addFavouriteToPending;
 window.removePendingFood = removePendingFood;
 window.removeFoodFavourite = removeFoodFavourite;
