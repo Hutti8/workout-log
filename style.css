@@ -308,3 +308,17 @@ body.girly .theme-btn:hover { background: #1a4f9e; border-color: #1a4f9e; }
 .weight-avg { font-size: 12px; color: var(--text-secondary); padding-bottom: 0.4rem; }
 .weight-avg:empty { display: none; }
 .creatine-row input { width: 24px; height: 24px; accent-color: #4ade80; cursor: pointer; }
+.weight-card { margin-top: 0; }
+.weight-chart-empty { font-size: 13px; color: var(--text-secondary); }
+.wc-legend { display: flex; gap: 16px; font-size: 12px; color: var(--text-secondary); margin: 2px 0 6px; }
+.wc-legend span { display: flex; align-items: center; gap: 6px; }
+.wc-key-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-secondary); display: inline-block; }
+.wc-key-line { width: 16px; height: 2px; border-radius: 1px; background: var(--col-hi); display: inline-block; }
+.wc-wrap { position: relative; }
+.wc-svg { width: 100%; height: auto; display: block; touch-action: pan-y; }
+.wc-grid { stroke: var(--border); stroke-width: 1; }
+.wc-axis { fill: var(--text-secondary); font-size: 11px; }
+.wc-dot { fill: var(--text-secondary); stroke: var(--bg-card); stroke-width: 2; }
+.wc-avg { fill: none; stroke: var(--col-hi); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.wc-cross { stroke: var(--text-secondary); stroke-width: 1; stroke-dasharray: 3 3; }
+.wc-tip { position: absolute; top: 0; background: var(--bg-primary); border: 1px solid var(--border); border-radius: 8px; padding: 6px 9px; font-size: 12px; color: var(--text-primary); white-space: nowrap; pointer-events: none; }

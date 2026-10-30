@@ -878,8 +878,88 @@ function renderStats() {
       return `<div class="stats-month ${count > 0 ? 'has-workouts' : ''}"><div class="stats-month-name">${name}</div><div class="stats-month-count">${count > 0 ? count : '·'}</div></div>`;
     }).join('');
     html += `<div class="stats-card"><div class="stats-year-title"><span>${year}</span><span class="stats-year-total">${yearTotal} workout${yearTotal !== 1 ? 's' : ''}</span></div><div class="stats-months">${monthCells}</div></div>`;
+    if (year === currentYear) html += '<div id="weight-chart"></div>';
   }
   container.innerHTML = html;
+  renderWeightChart();
+}
+
+const WEIGHT_CHART_DAYS = 90;
+
+function renderWeightChart() {
+  const el = document.getElementById('weight-chart');
+  if (!el) return;
+  const today = new Date();
+  const start = new Date(today);
+  start.setDate(start.getDate() - (WEIGHT_CHART_DAYS - 1));
+  const points = [];
+  for (let d = new Date(start); d <= today; d.setDate(d.getDate() + 1)) {
+    const key = localDateStr(d);
+    const avg = weightAverage(d);
+    points.push({ key, date: new Date(d), w: state.weights?.[key] ?? null, avg: avg ? avg.avg : null });
+  }
+  const firstIdx = points.findIndex(p => p.w !== null);
+  const shown = firstIdx < 0 ? [] : points.slice(firstIdx);
+  if (shown.filter(p => p.w !== null).length < 2) {
+    el.innerHTML = `<div class="stats-card weight-card"><div class="stats-year-title"><span>⚖️ Weight</span></div>
+      <p class="weight-chart-empty">Enter your weight on the Food tab on a couple of days to see the trend here.</p></div>`;
+    return;
+  }
+
+  const W = 440, H = 170, L = 38, R = 10, T = 10, B = 22;
+  const vals = shown.flatMap(p => [p.w, p.avg]).filter(v => v !== null);
+  const lo = Math.floor(Math.min(...vals) - 0.3), hi = Math.ceil(Math.max(...vals) + 0.3);
+  const x = i => L + (shown.length === 1 ? 0 : (i / (shown.length - 1)) * (W - L - R));
+  const y = v => T + (1 - (v - lo) / (hi - lo)) * (H - T - B);
+  const step = Math.max(1, Math.ceil((hi - lo) / 4));
+  let grid = '';
+  for (let v = lo; v <= hi; v += step) {
+    grid += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" class="wc-grid"/><text x="${L - 6}" y="${y(v) + 4}" class="wc-axis" text-anchor="end">${v}</text>`;
+  }
+  const fmt = d => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  const xLabels = [0, Math.floor((shown.length - 1) / 2), shown.length - 1]
+    .map((i, n) => `<text x="${x(i)}" y="${H - 4}" class="wc-axis" text-anchor="${['start', 'middle', 'end'][n]}">${fmt(shown[i].date)}</text>`).join('');
+  const avgPath = shown.map((p, i) => p.avg === null ? null : `${x(i)},${y(p.avg)}`).filter(Boolean).join(' ');
+  const dots = shown.map((p, i) => p.w === null ? '' : `<circle cx="${x(i)}" cy="${y(p.w)}" r="4" class="wc-dot"/>`).join('');
+
+  const latest = shown[shown.length - 1].avg ?? shown.filter(p => p.avg !== null).pop().avg;
+  const first = shown.find(p => p.avg !== null).avg;
+  const change = latest - first;
+  el.innerHTML = `
+    <div class="stats-card weight-card">
+      <div class="stats-year-title"><span>⚖️ Weight</span>
+        <span class="stats-year-total">${latest.toFixed(1)} kg avg · ${change <= 0 ? '▼' : '▲'} ${Math.abs(change).toFixed(1)} since ${fmt(shown[0].date)}</span></div>
+      <div class="wc-legend"><span><i class="wc-key-dot"></i>Weigh-in</span><span><i class="wc-key-line"></i>7-day average</span></div>
+      <div class="wc-wrap">
+        <svg viewBox="0 0 ${W} ${H}" class="wc-svg" role="img" aria-label="Weight over the last ${shown.length} days">
+          ${grid}${xLabels}
+          <polyline points="${avgPath}" class="wc-avg"/>
+          ${dots}
+          <line id="wc-cross" class="wc-cross" y1="${T}" y2="${H - B}" style="display:none"/>
+          <rect x="${L}" y="${T}" width="${W - L - R}" height="${H - T - B}" fill="transparent" id="wc-hit"/>
+        </svg>
+        <div id="wc-tip" class="wc-tip" style="display:none"></div>
+      </div>
+    </div>`;
+
+  const svg = el.querySelector('svg'), tip = el.querySelector('#wc-tip'), cross = el.querySelector('#wc-cross');
+  const show = evt => {
+    const box = svg.getBoundingClientRect();
+    const sx = (evt.clientX - box.left) * (W / box.width);
+    const i = Math.max(0, Math.min(shown.length - 1, Math.round(((sx - L) / (W - L - R)) * (shown.length - 1))));
+    const p = shown[i];
+    cross.setAttribute('x1', x(i)); cross.setAttribute('x2', x(i)); cross.style.display = '';
+    tip.innerHTML = `<b>${fmt(p.date)}</b><br>${p.w !== null ? `Weigh-in ${p.w.toFixed(1)} kg<br>` : ''}${p.avg !== null ? `7-day avg ${p.avg.toFixed(1)} kg` : ''}`;
+    tip.style.display = 'block';
+    const px = (x(i) / W) * box.width;
+    const beside = px + 10 + tip.offsetWidth <= box.width ? px + 10 : px - 10 - tip.offsetWidth;
+    tip.style.left = `${Math.max(0, beside)}px`;
+  };
+  const hide = () => { tip.style.display = 'none'; cross.style.display = 'none'; };
+  const hit = el.querySelector('#wc-hit');
+  hit.addEventListener('pointermove', show);
+  hit.addEventListener('pointerdown', show);
+  hit.addEventListener('pointerleave', hide);
 }
 
 function renderHistory() {
