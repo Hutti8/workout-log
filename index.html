@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#1a1a1e" />
   <title>Workout Log</title>
-  <link rel="stylesheet" href="style.css?v=20261029" />
+  <link rel="stylesheet" href="style.css?v=20261030" />
 </head>
 <body>
 
@@ -175,10 +175,17 @@
         <button class="btn-outline" id="food-day-next" onclick="shiftFoodDay(1)">›</button>
       </div>
 
-      <label class="card creatine-row">
-        <span>💊 Creatine</span>
-        <input type="checkbox" id="creatine-check" onchange="toggleCreatine(this.checked)" />
-      </label>
+      <div class="card day-card">
+        <label class="creatine-row">
+          <span>💊 Creatine</span>
+          <input type="checkbox" id="creatine-check" onchange="toggleCreatine(this.checked)" />
+        </label>
+        <div class="weight-row">
+          <span>⚖️ Weight</span>
+          <span class="weight-input"><input type="number" id="weight-input" min="30" max="300" step="0.1" placeholder="—" inputmode="decimal" onchange="saveWeight(this.value)" /> kg</span>
+        </div>
+        <div id="weight-avg" class="weight-avg"></div>
+      </div>
 
       <div class="card">
         <div class="card-title">📊 Macros</div>
@@ -292,7 +299,7 @@
   </nav>
 
   <!-- Bump ?v= whenever app.js or style.css change, so phones never pair a new page with cached old code -->
-  <script src="app.js?v=20261029" type="module"></script>
+  <script src="app.js?v=20261030" type="module"></script>
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations().then(regs => regs.forEach(r => r.unregister()));

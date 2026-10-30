@@ -65,6 +65,7 @@ onAuthChange(async (user) => {
     data.foodEntries = data.foodEntries || [];
     data.foodFavourites = data.foodFavourites || [];
     data.creatineDays = data.creatineDays || {};
+    data.weights = data.weights || {};
     data.macroTargets = data.macroTargets || targetsFromWeight(118);
     state = data;
     renderSetup();
@@ -942,6 +943,8 @@ function renderNutrition() {
     : day.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
   document.getElementById('food-day-next').disabled = foodDayOffset >= 0;
   document.getElementById('creatine-check').checked = !!state.creatineDays[dayStr];
+  document.getElementById('weight-input').value = state.weights[dayStr] ?? '';
+  renderWeightAverage(day);
 
   const entries = state.foodEntries.filter(e => e.date === dayStr);
   const totals = { calories: 0, protein: 0, carbs: 0, fat: 0 };
@@ -1049,6 +1052,41 @@ async function removeFoodFavourite(i) {
 document.getElementById('food-input').addEventListener('keydown', e => {
   if (e.key === 'Enter') analyzeFood();
 });
+
+function weightAverage(endDay) {
+  const vals = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(endDay);
+    d.setDate(d.getDate() - i);
+    const w = state.weights[localDateStr(d)];
+    if (w) vals.push(w);
+  }
+  return vals.length ? { avg: vals.reduce((a, b) => a + b, 0) / vals.length, n: vals.length } : null;
+}
+
+function renderWeightAverage(day) {
+  const el = document.getElementById('weight-avg');
+  const now = weightAverage(day);
+  if (!now) { el.textContent = ''; return; }
+  const prevEnd = new Date(day);
+  prevEnd.setDate(prevEnd.getDate() - 7);
+  const prev = weightAverage(prevEnd);
+  let text = `7-day average ${now.avg.toFixed(1)} kg (${now.n} weigh-in${now.n > 1 ? 's' : ''})`;
+  if (prev) {
+    const diff = now.avg - prev.avg;
+    text += ` · ${diff <= 0 ? '▼' : '▲'} ${Math.abs(diff).toFixed(1)} kg vs week before`;
+  }
+  el.textContent = text;
+}
+
+async function saveWeight(value) {
+  const day = foodDay();
+  const kg = Math.round(parseFloat(String(value).replace(',', '.')) * 10) / 10;
+  if (kg > 0) state.weights[localDateStr(day)] = kg;
+  else delete state.weights[localDateStr(day)];
+  renderWeightAverage(day);
+  await saveState();
+}
 
 async function toggleCreatine(taken) {
   const day = localDateStr(foodDay());
@@ -1274,6 +1312,7 @@ function exportFood() {
     macroTargets: state.macroTargets,
     foodFavourites: state.foodFavourites,
     creatineDays: Object.keys(state.creatineDays).sort(),
+    weights: Object.fromEntries(Object.entries(state.weights).sort()),
     foodEntries: state.foodEntries.slice().sort((a, b) => a.date.localeCompare(b.date)),
   };
   const url = URL.createObjectURL(new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' }));
@@ -1315,6 +1354,7 @@ window.removeFoodPhoto = removeFoodPhoto;
 window.toggleFoodFavourite = toggleFoodFavourite;
 window.exportFood = exportFood;
 window.toggleCreatine = toggleCreatine;
+window.saveWeight = saveWeight;
 window.addFavouriteToPending = addFavouriteToPending;
 window.removePendingFood = removePendingFood;
 window.removeFoodFavourite = removeFoodFavourite;
